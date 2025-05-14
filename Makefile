@@ -19,13 +19,10 @@ endif
 # $(@) stands for target -> written before : -> $(BUILD_DIR)/prime
 
 # all is defined as main target when running make
-all: $(BUILD_DIR)/prime $(BUILD_DIR)/feynman_omp_1d $(BUILD_DIR)/feynman_omp_2d $(BUILD_DIR)/feynman_omp_3d $(BUILD_DIR)/moldyn \
+all: $(BUILD_DIR)/feynman_omp_1d $(BUILD_DIR)/feynman_omp_2d $(BUILD_DIR)/feynman_omp_3d \
 	$(BUILD_DIR)/feynman_pthreads_3d
 
 # OpenMP
-$(BUILD_DIR)/prime: $(SOURCE_DIR)/prime.c $(SOURCE_DIR)/util.c | $(BUILD_DIR)	# when building prime: compile these files | what needs to be made before running command, then command is written
-	$(OMPCC) $(CC_FLAGS) $(^) -o $(@) $(LIBS)
-
 $(BUILD_DIR)/feynman_omp_1d: $(SOURCE_DIR)/feynman_omp_1d.c $(SOURCE_DIR)/util.c | $(BUILD_DIR)
 	$(OMPCC) $(CC_FLAGS) $(^) -o $(@) $(LIBS)
 
@@ -33,9 +30,6 @@ $(BUILD_DIR)/feynman_omp_2d: $(SOURCE_DIR)/feynman_omp_2d.c $(SOURCE_DIR)/util.c
 	$(OMPCC) $(CC_FLAGS) $(^) -o $(@) $(LIBS)
 
 $(BUILD_DIR)/feynman_omp_3d: $(SOURCE_DIR)/feynman_omp_3d.c $(SOURCE_DIR)/util.c | $(BUILD_DIR)
-	$(OMPCC) $(CC_FLAGS) $(^) -o $(@) $(LIBS)
-
-$(BUILD_DIR)/moldyn: $(SOURCE_DIR)/moldyn.c $(SOURCE_DIR)/util.c | $(BUILD_DIR)
 	$(OMPCC) $(CC_FLAGS) $(^) -o $(@) $(LIBS)
 
 

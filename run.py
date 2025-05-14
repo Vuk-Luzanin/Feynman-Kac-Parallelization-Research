@@ -28,19 +28,6 @@ def run_make():
         sys.exit(1)
 
 TESTS = {
-    'prime': {
-        'type': 'omp',
-        'args': [
-            [1, 131072, 2],
-            [5, 500000, 10],
-            [1, 65536, 4]
-        ],
-        'funcs': 2,
-        'x': lambda result: [int(row[0]) for row in result],    # result is list of lists/tuples - takes every first element in row and cast to int
-        'y': lambda result, seq_result: [max(float(seq_result[idx][2]), 0.0000001) / max(float(row[2]), 0.0000001) for idx, row in enumerate(result)],  # speedup = Tsekv/Tparalel (handling division by 0)
-        'same': lambda result1, result2: [int(row[1]) for row in result1] == [int(row[1]) for row in result2],
-        'threads': [1, 2, 4, 8, 16]
-    },
     'feynman_omp_1d': {
         'type': 'omp',
         'args': [[1000], [5000], [10000], [20000]],
@@ -66,13 +53,6 @@ TESTS = {
         'x': lambda result: [int(result[0][0])],
         'y': lambda result, seq_result: [max(float(seq_result[0][2]), 0.0000001) / max(float(result[0][2]), 0.0000001)],
         'same': lambda result1, result2: (abs(float(result1[0][1]) - float(result2[0][1])) <= ACCURACY),
-        'threads': [1, 2, 4, 8, 16]
-    },
-    'moldyn': {
-        'type': 'omp',
-        'x': lambda result: [int(result[-1][0])],
-        'y': lambda result, seq_result: [max(float(seq_result[-1][1]), 0.0000001) / max(float(result[-1][1]), 0.0000001)],
-        'same': lambda result1, result2: [float(row[1]) for row in result1[:-1]] == [float(row[1]) for row in result2[:-1]],
         'threads': [1, 2, 4, 8, 16]
     },
     'feynman_pthreads_3d': {
@@ -258,18 +238,13 @@ def main():
         for test_name, test_data in TESTS.items():
             run_tests(test_name, test_data)
 
-# To run the script, use 'python run.py' to run all tests or 'python run.py test_name' to run a specific test (e.g., 'prime'). Results are saved as .svg charts and log files in the 'gen' directory.
+# To run the script, use 'python run.py' to run all tests or 'python run.py test_name' to run a specific test (e.g., 'feynman_omp_1d'). Results are saved as .svg charts and log files in the 'gen' directory.
 if __name__ == "__main__":
     run_make()
     main()
 
 
 """
-
-How compiled programs can be run (name, function number (0-manually scheduled, 1-worksharing), lower_bound, higher_bound, factor)
-./gen/prime 0 1 131072 2
-./gen/prime 0 5 500000 10
-./gen/prime 0 1 65536 4
 
 (name, function number (0-worksharing, 1-tasks), number_of_points)
 ./gen/feyman 0 1000
