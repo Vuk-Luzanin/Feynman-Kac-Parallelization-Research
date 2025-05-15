@@ -4,7 +4,7 @@ BUILD_DIR = gen
 SOURCE_DIR = src
 
 # on my machine it is gcc-14 (regular gcc can be used instead)
-OMPCC = gcc-14 -fopenmp
+OMPCC = gcc -fopenmp
 CC_FLAGS = -O3
 CC_FLAGS += -Wall -Wextra
 LIBS = -lm
@@ -20,7 +20,7 @@ endif
 
 # all is defined as main target when running make
 all: $(BUILD_DIR)/feynman_omp_1d $(BUILD_DIR)/feynman_omp_2d $(BUILD_DIR)/feynman_omp_3d \
-	$(BUILD_DIR)/feynman_pthreads_3d
+	 $(BUILD_DIR)/feynman_pthreads_1d $(BUILD_DIR)/feynman_pthreads_3d
 
 # OpenMP
 $(BUILD_DIR)/feynman_omp_1d: $(SOURCE_DIR)/feynman_omp_1d.c $(SOURCE_DIR)/util.c | $(BUILD_DIR)
@@ -34,6 +34,9 @@ $(BUILD_DIR)/feynman_omp_3d: $(SOURCE_DIR)/feynman_omp_3d.c $(SOURCE_DIR)/util.c
 
 
 #Pthreads
+$(BUILD_DIR)/feynman_pthreads_1d: $(SOURCE_DIR)/feynman_pthreads_1d.c $(SOURCE_DIR)/util.c | $(BUILD_DIR)
+	$(OMPCC) $(CC_FLAGS) $(^) -o $(@) $(LIBS) -lpthread
+
 $(BUILD_DIR)/feynman_pthreads_3d: $(SOURCE_DIR)/feynman_pthreads_3d.c $(SOURCE_DIR)/util.c | $(BUILD_DIR)
 	$(OMPCC) $(CC_FLAGS) $(^) -o $(@) $(LIBS) -lpthread
 

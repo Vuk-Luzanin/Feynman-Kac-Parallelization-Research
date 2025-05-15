@@ -6,6 +6,8 @@
 #include <omp.h> // used only for time measurement and passing number of threads -> to uniform the run.py script
 #include "util.h"
 
+#define DIMENSIONS 3
+
 #define NI 16
 #define NJ 11
 #define NK 6
@@ -103,7 +105,7 @@ void* trial_worker(void *varg)
     return NULL;
 }
 
-double feynman_pthreads(double a, double b, double c, int ni, int nj, int nk, int N)
+double feynman_pthreads_3d(double a, double b, double c, int ni, int nj, int nk, int N)
 {
     int n_inside = 0;
 
@@ -180,12 +182,12 @@ int main(int argc, char **argv)
     const int N = atoi(argv[1]);
     num_threads = get_num_threads();
 
-    stepsz = sqrt(3 * h);
+    stepsz = sqrt(DIMENSIONS * h);
     pthread_mutex_init(&wt_mutex, NULL);
 
     printf("TEST: N=%d, num_threads=%d\n", N, num_threads);
     double wtime = omp_get_wtime();
-    double err = feynman_pthreads(a, b, c, ni, nj, nk, N);
+    double err = feynman_pthreads_3d(a, b, c, ni, nj, nk, N);
     wtime = omp_get_wtime() - wtime;
     printf("%d    %lf    %lf\n", N, err, wtime);
     printf("TEST END\n");

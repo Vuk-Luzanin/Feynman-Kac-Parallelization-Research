@@ -1,4 +1,4 @@
-# feynman-kac-parallel-research
+# Feynman Kac Parallel Research
 
 Repository focused on research and implementation of parallel algorithms for the Feynman-Kac problem. Covers CPU and GPU parallelization using programming models like OpenMP, Pthreads, CUDA, and others. The goal is to explore performance optimizations and scalability across different hardware.
 

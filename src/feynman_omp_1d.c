@@ -56,25 +56,18 @@ double feynman_1(const double a, const double h, const double stepsz, const int 
   {
     // interpolacija koordinata kako bi se dobilo kada je i = 1 -> x = -a, kada je i = ni -> x = a
     double x = ((double)(ni - i) * (-a) + (double)(i - 1) * a) / (double)(ni - 1);
-    
-    double test = a * a - x * x;
-    double chk;
+    double chk = pow(x / a, 2);
+
     double w_exact = 0;
     double wt = 0;
 
-    if (test < 0.0)
+    if (1.0 < chk)
     {
       // tacka nije unutar 1-D elipsoida
-// deo oznacen za DEBUG se kompajlira ako se prilikom prevodjenja navede opcija -DDEBUG
-#ifdef DEBUG
-      printf("  %7.4f  %7.4f  %10.4e  %10.4e  %10.4e  %8d\n",
-              x, y, 1.0, 1.0, 0.0, 0);
-#endif
       w_exact = 1.0;
       wt = 1.0;
       continue;
     }
-
     // tacka je unutar 1-D elipsoida
     n_inside++;
 
@@ -82,9 +75,6 @@ double feynman_1(const double a, const double h, const double stepsz, const int 
     w_exact = exp(pow(x / a, 2) - 1.0);
     wt = 0.0;
 
-#ifdef DEBUG
-    int steps = 0;
-#endif
     // pustamo N tacaka iz izabrane koordinate - visestruki pokusaji kako bi se dobila bolja aproksimacija
     for (int trial = 0; trial < N; trial++)
     {
@@ -116,9 +106,6 @@ double feynman_1(const double a, const double h, const double stepsz, const int 
         // move
         x1 = x1 + dx;
 
-#ifdef DEBUG
-        ++steps;
-#endif
         // potential after moving
         double vh = potential(a, x1);
 
