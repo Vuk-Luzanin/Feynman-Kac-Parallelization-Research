@@ -5,8 +5,19 @@
 #include <omp.h>
 #include "util.h"
 
-#define NUM_LOCKS 256
-#define DIMENSIONS 3
+#define NUM_LOCKS   256
+#define DIMENSIONS  3
+#define NI          16
+#define NJ          11
+#define NK          6
+
+static double a = 3.0;
+static double b = 2.0;
+static double c = 1.0;
+static double h = 0.001;
+
+static double stepsz;
+
 
 // potencijalna energiju u nekom centralno simetricnom polju unutar elipsoida
 // energija veca sto je tacka dalje od centra i sto su dimenzije elipsoida manje
@@ -37,13 +48,13 @@ double r8_uniform_01(int *seed)
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
-double feynman_1(const double a, const double b, const double c, const double h, const double stepsz, const int ni, const int nj, const int nk, const int N) 
+double feynman_1(const double a, const double b, const double c, const double h, const double stepsz, const int N) 
 {
   int seed = 123456789;
   double err = 0.0;
   int n_inside = 0;   // broj tacaka unutar elipsoida (unutar mreze)
 
-#pragma omp parallel default(none) shared(a, b, c, h, stepsz, ni, nj, nk, N) \
+#pragma omp parallel default(none) shared(a, b, c, h, stepsz, N) \
                                    firstprivate(seed) \
                                    reduction(+ : err) \
                                    reduction(+ : n_inside)
@@ -52,19 +63,21 @@ double feynman_1(const double a, const double b, const double c, const double h,
   seed += omp_get_thread_num();
 
 #pragma omp for collapse(3)
-  for (int i = 1; i <= ni; i++)
+  for (int i = 1; i <= NI; i++)
   {
-    for (int j = 1; j <= nj; j++)
+    for (int j = 1; j <= NJ; j++)
     {
-      for (int k = 1; k <= nk; k++)
+      for (int k = 1; k <= NK; k++)
       {
         // interpolacija koordinata kako bi se dobilo kada je i = 1 -> x = -a, kada je i = ni -> x = a
-        double x = ((double)(ni - i) * (-a) + (double)(i - 1) * a) / (double)(ni - 1);
-        double y = ((double)(nj - j) * (-b) + (double)(j - 1) * b) / (double)(nj - 1);
-        double z = ((double)(nk - k) * (-c) + (double)(k - 1) * c) / (double)(nk - 1);
-
+        double x = ((double)(NI - i) * (-a) + (double)(i - 1) * a) / (double)(NI - 1);
+        double y = ((double)(NJ - j) * (-b) + (double)(j - 1) * b) / (double)(NJ - 1);
+        double z = ((double)(NK - k) * (-c) + (double)(k - 1) * c) / (double)(NK - 1);
         // check if point is inside elipsoid [a, b, c]
         double chk = pow(x / a, 2) + pow(y / b, 2) + pow(z / c, 2);
+
+        double w_exact = 0.0;
+        double wt = 0.0;
 
         if (chk > 1.0)
         {
@@ -82,8 +95,8 @@ double feynman_1(const double a, const double b, const double c, const double h,
         n_inside++;
 
         // analitička vrednost funkcije gustine/potencijala u tački unutar elipsoida - referentna vrednost koju poredimo u odnosu na numericku - wt
-        double w_exact = exp(pow(x / a, 2) + pow(y / b, 2) + pow(z / c, 2) - 1.0);
-        double wt = 0.0;
+        w_exact = exp(pow(x / a, 2) + pow(y / b, 2) + pow(z / c, 2) - 1.0);
+        wt = 0.0;
 
 #ifdef DEBUG
         int steps = 0;
@@ -94,8 +107,10 @@ double feynman_1(const double a, const double b, const double c, const double h,
           double x1 = x;
           double x2 = y;
           double x3 = z;
+
           double w = 1.0;
           chk = 0.0;
+
           // kretanje cestice - dok se nalazi unutar elipsoida
           while (chk < 1.0)
           {
@@ -105,17 +120,21 @@ double feynman_1(const double a, const double b, const double c, const double h,
             // da li se pomeramo za +stepsz ili -stepsz
             double us;
 
-            double dx;
-            double dy;
-            double dz;
+            double dx = 0;
+            double dy = 0;
+            double dz = 0;
 
             if (ut < 1.0 / 3.0)
             {
               us = r8_uniform_01(&seed) - 0.5;
               if (us < 0.0)
+              {
                 dx = -stepsz;
+              } 
               else
+              {
                 dx = stepsz;
+              }
             }
             else
             {
@@ -128,9 +147,13 @@ double feynman_1(const double a, const double b, const double c, const double h,
             {
               us = r8_uniform_01(&seed) - 0.5;
               if (us < 0.0)
+              {
                 dy = -stepsz;
+              }
               else
+              {
                 dy = stepsz;
+              }
             }
             else
             {
@@ -143,9 +166,13 @@ double feynman_1(const double a, const double b, const double c, const double h,
             {
               us = r8_uniform_01(&seed) - 0.5;
               if (us < 0.0)
+              {
                 dz = -stepsz;
+              }
               else
+              {
                 dz = stepsz;
+              }
             }
             else
             {
@@ -194,7 +221,7 @@ double feynman_1(const double a, const double b, const double c, const double h,
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-double feynman_2(const double a, const double b, const double c, const double h, const double stepsz, const int ni, const int nj, const int nk, const int N) 
+double feynman_2(const double a, const double b, const double c, const double h, const double stepsz, const int N) 
 {
   static int seed = 123456789;  // set to be static -> to be global (shared) by default
   int n_inside = 0;
@@ -204,22 +231,23 @@ double feynman_2(const double a, const double b, const double c, const double h,
   double wt[17][12][7] = {{{0}}};
 
 #pragma omp threadprivate(seed) // then, it is private for every thread (no race condition)
-#pragma omp parallel default(none) shared(a, b, c, h, stepsz, ni, nj, nk, N, n_inside, w_exact, wt)
+#pragma omp parallel default(none) shared(a, b, c, h, stepsz, N, n_inside, w_exact, wt)
 {
   seed += omp_get_thread_num();
 
 #pragma omp single
 {
-  for (int i = 1; i <= ni; i++)
+  for (int i = 1; i <= NI; i++)
   {
-    for (int j = 1; j <= nj; j++)
+    for (int j = 1; j <= NJ; j++)
     {
-      for (int k = 1; k <= nk; k++)
+      for (int k = 1; k <= NK; k++)
       {
-        double x = ((double)(ni - i) * (-a) + (double)(i - 1) * a) / (double)(ni - 1);
-        double y = ((double)(nj - j) * (-b) + (double)(j - 1) * b) / (double)(nj - 1);
-        double z = ((double)(nk - k) * (-c) + (double)(k - 1) * c) / (double)(nk - 1);
+        double x = ((double)(NI - i) * (-a) + (double)(i - 1) * a) / (double)(NI - 1);
+        double y = ((double)(NJ - j) * (-b) + (double)(j - 1) * b) / (double)(NJ - 1);
+        double z = ((double)(NK - k) * (-c) + (double)(k - 1) * c) / (double)(NK - 1);
         double chk = pow(x / a, 2) + pow(y / b, 2) + pow(z / c, 2);
+
         w_exact[i][j][k] = 0.0;
         wt[i][j][k] = 0.0;
 
@@ -239,6 +267,7 @@ double feynman_2(const double a, const double b, const double c, const double h,
           double x1 = x;
           double x2 = y;
           double x3 = z;
+
           double w = 1.0;
           chk = 0.0;
 
@@ -254,24 +283,31 @@ double feynman_2(const double a, const double b, const double c, const double h,
             {
               us = r8_uniform_01(&seed) - 0.5;
               if (us < 0.0)
+              {
                 dx = -stepsz;
+              }
               else
+              {
                 dx = stepsz;
+              }
             }
             else
             {
               dx = 0.0;
             }
 
-
               ut = r8_uniform_01(&seed);
             if (ut < 1.0 / 3.0)
             {
               us = r8_uniform_01(&seed) - 0.5;
               if (us < 0.0)
+              {
                 dy = -stepsz;
+              }
               else
+              {
                 dy = stepsz;
+              }
             }
             else
             {
@@ -283,9 +319,13 @@ double feynman_2(const double a, const double b, const double c, const double h,
             {
               us = r8_uniform_01(&seed) - 0.5;
               if (us < 0.0)
+              {
                 dz = -stepsz;
+              }
               else
+              {
                 dz = stepsz;
+              }
             }
             else
             {
@@ -355,7 +395,7 @@ unsigned int get_lock_index(int i, int j, int k)
 }
 
 // using one lock for more threads
-double feynman_3(const double a, const double b, const double c, const double h, const double stepsz, const int ni, const int nj, const int nk, const int N) 
+double feynman_3(const double a, const double b, const double c, const double h, const double stepsz, const int N) 
 {
   static int seed = 123456789;  // set to be static -> to be global (shared) by default
   int n_inside = 0;
@@ -370,22 +410,23 @@ double feynman_3(const double a, const double b, const double c, const double h,
   }
 
 #pragma omp threadprivate(seed) // then, it is private for every thread (no race condition)
-#pragma omp parallel default(none) shared(a, b, c, h, stepsz, ni, nj, nk, N, n_inside, w_exact, wt, locks)
+#pragma omp parallel default(none) shared(a, b, c, h, stepsz, N, n_inside, w_exact, wt, locks)
 {
   seed += omp_get_thread_num();
 
 #pragma omp single
 {
-  for (int i = 1; i <= ni; i++)
+  for (int i = 1; i <= NI; i++)
   {
-    for (int j = 1; j <= nj; j++)
+    for (int j = 1; j <= NJ; j++)
     {
-      for (int k = 1; k <= nk; k++)
+      for (int k = 1; k <= NK; k++)
       {
-        double x = ((double)(ni - i) * (-a) + (double)(i - 1) * a) / (double)(ni - 1);
-        double y = ((double)(nj - j) * (-b) + (double)(j - 1) * b) / (double)(nj - 1);
-        double z = ((double)(nk - k) * (-c) + (double)(k - 1) * c) / (double)(nk - 1);
+        double x = ((double)(NI - i) * (-a) + (double)(i - 1) * a) / (double)(NI - 1);
+        double y = ((double)(NJ - j) * (-b) + (double)(j - 1) * b) / (double)(NJ - 1);
+        double z = ((double)(NK - k) * (-c) + (double)(k - 1) * c) / (double)(NK - 1);
         double chk = pow(x / a, 2) + pow(y / b, 2) + pow(z / c, 2);
+
         w_exact[i][j][k] = 0.0;
         wt[i][j][k] = 0.0;
 
@@ -405,6 +446,7 @@ double feynman_3(const double a, const double b, const double c, const double h,
           double x1 = x;
           double x2 = y;
           double x3 = z;
+
           double w = 1.0;
           chk = 0.0;
 
@@ -420,9 +462,13 @@ double feynman_3(const double a, const double b, const double c, const double h,
             {
               us = r8_uniform_01(&seed) - 0.5;
               if (us < 0.0)
+              {
                 dx = -stepsz;
+              }
               else
+              {
                 dx = stepsz;
+              }
             }
             else
             {
@@ -434,9 +480,13 @@ double feynman_3(const double a, const double b, const double c, const double h,
             {
               us = r8_uniform_01(&seed) - 0.5;
               if (us < 0.0)
+              {
                 dy = -stepsz;
+              }
               else
+              {
                 dy = stepsz;
+              }
             }
             else
             {
@@ -448,9 +498,13 @@ double feynman_3(const double a, const double b, const double c, const double h,
             {
               us = r8_uniform_01(&seed) - 0.5;
               if (us < 0.0)
+              {
                 dz = -stepsz;
+              }
               else
+              {
                 dz = stepsz;
+              }
             }
             else
             {
@@ -513,23 +567,11 @@ double feynman_3(const double a, const double b, const double c, const double h,
 }
 
 
-double (*FUNCS[])(const double, const double, const double, const double, const double, const int, const int, const int, const int) = {feynman_1, feynman_2, feynman_3};
+double (*FUNCS[])(const double, const double, const double, const double, const double, const int) = {feynman_1, feynman_2, feynman_3};
 
 
 int main(int argc, char **argv)
 {
-  // velicina prostora po x, y i z
-  const double a = 3.0;
-  const double b = 2.0;
-  const double c = 1.0;
-  const double h = 0.001;       // vremenski interval između dva uzastopna stanja cestice tokom simulacije
-  // broj tacaka po svakoj dimenziji
-  const int ni = 16;
-  const int nj = 11;
-  const int nk = 6;
-
-  const double stepsz = sqrt(DIMENSIONS * h);      // velicina koraka kojim se cestica pomera u svakom koraku
-
   if (argc < 3)
   {
     printf("Invalid number of arguments passed.\n");
@@ -542,9 +584,11 @@ int main(int argc, char **argv)
   // numer of walks per point
   const int N = atoi(argv[2]);
 
+  stepsz = sqrt(DIMENSIONS * h);      // velicina koraka kojim se cestica pomera u svakom koraku
+
   printf("TEST: func=%d, N=%d, num_threads=%ld\n", func, N, get_num_threads());
   double wtime = omp_get_wtime();
-  double err = FUNCS[func](a, b, c, h, stepsz, ni, nj, nk, N);
+  double err = FUNCS[func](a, b, c, h, stepsz, N);
   wtime = omp_get_wtime() - wtime;
   printf("%d    %lf    %lf\n", N, err, wtime);
   printf("TEST END\n");
