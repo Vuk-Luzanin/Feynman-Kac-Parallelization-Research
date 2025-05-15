@@ -6,16 +6,12 @@
 #include <omp.h> // used only for time measurement and passing number of threads -> to uniform the run.py script
 #include "util.h"
 
-#define DIMENSIONS 3
-
-#define NI 16
-#define NJ 11
-#define NK 6
+#define DIMENSIONS  3
+#define NI          16
+#define NJ          11
+#define NK          6
 
 int num_threads = 8;
-static int ni = NI;
-static int nj = NJ;
-static int nk = NK;
 
 static double wt[NI+1][NJ+1][NK+1] = {{{0}}};
 static double w_exact[NI+1][NJ+1][NK+1] = {{{0}}};
@@ -105,20 +101,21 @@ void* trial_worker(void *varg)
     return NULL;
 }
 
-double feynman_pthreads_3d(double a, double b, double c, int ni, int nj, int nk, int N)
+double feynman_pthreads_3d(double a, double b, double c, int N)
 {
     int n_inside = 0;
 
-    for (int i = 1; i <= ni; i++) 
+    for (int i = 1; i <= NI; i++) 
     {
-        for (int j = 1; j <= nj; j++) 
+        for (int j = 1; j <= NJ; j++) 
         {
-            for (int k = 1; k <= nk; k++) 
+            for (int k = 1; k <= NK; k++) 
             {
-                double x = ((double)(ni - i) * (-a) + (double)(i - 1) * a) / (double)(ni - 1);
-                double y = ((double)(nj - j) * (-b) + (double)(j - 1) * b) / (double)(nj - 1);
-                double z = ((double)(nk - k) * (-c) + (double)(k - 1) * c) / (double)(nk - 1);
+                double x = ((double)(NI - i) * (-a) + (double)(i - 1) * a) / (double)(NI - 1);
+                double y = ((double)(NJ - j) * (-b) + (double)(j - 1) * b) / (double)(NJ - 1);
+                double z = ((double)(NK - k) * (-c) + (double)(k - 1) * c) / (double)(NK - 1);
                 double chk = pow(x / a, 2) + pow(y / b, 2) + pow(z / c, 2);
+                
                 w_exact[i][j][k] = 0.0;
                 wt[i][j][k] = 0.0;
 
@@ -126,6 +123,7 @@ double feynman_pthreads_3d(double a, double b, double c, int ni, int nj, int nk,
                     continue;
 
                 n_inside++;
+
                 w_exact[i][j][k] = exp(pow(x / a, 2) + pow(y / b, 2) + pow(z / c, 2) - 1.0);
 
                 pthread_t threads[num_threads];
@@ -187,7 +185,7 @@ int main(int argc, char **argv)
 
     printf("TEST: N=%d, num_threads=%d\n", N, num_threads);
     double wtime = omp_get_wtime();
-    double err = feynman_pthreads_3d(a, b, c, ni, nj, nk, N);
+    double err = feynman_pthreads_3d(a, b, c, N);
     wtime = omp_get_wtime() - wtime;
     printf("%d    %lf    %lf\n", N, err, wtime);
     printf("TEST END\n");
