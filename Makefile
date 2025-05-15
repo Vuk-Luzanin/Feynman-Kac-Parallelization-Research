@@ -2,11 +2,14 @@
 BUILD_DIR = gen
 # where all source code is located
 SOURCE_DIR = src
+OMP_DIR = $(SOURCE_DIR)/OpenMP
+PTHREADS_DIR = $(SOURCE_DIR)/Pthreads
 
 # on my machine it is gcc-14 (regular gcc can be used instead)
 OMPCC = gcc -fopenmp
 CC_FLAGS = -O3
 CC_FLAGS += -Wall -Wextra
+CC_FLAGS += -I$(SOURCE_DIR)  # include path so util.h can be found -> to know where to find .h files
 LIBS = -lm
 
 ifeq ($(DEBUG), 1)
@@ -23,21 +26,21 @@ all: $(BUILD_DIR)/feynman_omp_1d $(BUILD_DIR)/feynman_omp_2d $(BUILD_DIR)/feynma
 	 $(BUILD_DIR)/feynman_pthreads_1d $(BUILD_DIR)/feynman_pthreads_3d
 
 # OpenMP
-$(BUILD_DIR)/feynman_omp_1d: $(SOURCE_DIR)/feynman_omp_1d.c $(SOURCE_DIR)/util.c | $(BUILD_DIR)
+$(BUILD_DIR)/feynman_omp_1d: $(OMP_DIR)/feynman_omp_1d.c $(SOURCE_DIR)/util.c | $(BUILD_DIR)
 	$(OMPCC) $(CC_FLAGS) $(^) -o $(@) $(LIBS)
 
-$(BUILD_DIR)/feynman_omp_2d: $(SOURCE_DIR)/feynman_omp_2d.c $(SOURCE_DIR)/util.c | $(BUILD_DIR)
+$(BUILD_DIR)/feynman_omp_2d: $(OMP_DIR)/feynman_omp_2d.c $(SOURCE_DIR)/util.c | $(BUILD_DIR)
 	$(OMPCC) $(CC_FLAGS) $(^) -o $(@) $(LIBS)
 
-$(BUILD_DIR)/feynman_omp_3d: $(SOURCE_DIR)/feynman_omp_3d.c $(SOURCE_DIR)/util.c | $(BUILD_DIR)
+$(BUILD_DIR)/feynman_omp_3d: $(OMP_DIR)/feynman_omp_3d.c $(SOURCE_DIR)/util.c | $(BUILD_DIR)
 	$(OMPCC) $(CC_FLAGS) $(^) -o $(@) $(LIBS)
 
 
 #Pthreads
-$(BUILD_DIR)/feynman_pthreads_1d: $(SOURCE_DIR)/feynman_pthreads_1d.c $(SOURCE_DIR)/util.c | $(BUILD_DIR)
+$(BUILD_DIR)/feynman_pthreads_1d: $(PTHREADS_DIR)/feynman_pthreads_1d.c $(SOURCE_DIR)/util.c | $(BUILD_DIR)
 	$(OMPCC) $(CC_FLAGS) $(^) -o $(@) $(LIBS) -lpthread
 
-$(BUILD_DIR)/feynman_pthreads_3d: $(SOURCE_DIR)/feynman_pthreads_3d.c $(SOURCE_DIR)/util.c | $(BUILD_DIR)
+$(BUILD_DIR)/feynman_pthreads_3d: $(PTHREADS_DIR)/feynman_pthreads_3d.c $(SOURCE_DIR)/util.c | $(BUILD_DIR)
 	$(OMPCC) $(CC_FLAGS) $(^) -o $(@) $(LIBS) -lpthread
 
 $(BUILD_DIR):		# when running this, execute this command: this command will run if $(BUILD_DIR) does not exist, -p adds parent directories in the path of the new one
