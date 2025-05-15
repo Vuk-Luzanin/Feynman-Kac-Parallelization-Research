@@ -6,20 +6,18 @@
 #include <omp.h> // used only for time measurement and passing number of threads -> to uniform the run.py script
 #include "util.h"
 
-#define DIMENSIONS 1
-
-#define NI 11
-
-int num_threads = 8;
-static int ni = NI;
-
-static double wt[NI+1] = {0};
-static double w_exact[NI+1] = {0};
+#define DIMENSIONS  1
+#define NI          11
 
 static double a = 2.0;
 static double h = 0.0001;
 
 static double stepsz;
+
+int num_threads = 8;
+
+static double wt[NI+1] = {0};
+static double w_exact[NI+1] = {0};
 
 typedef struct 
 {
@@ -109,14 +107,14 @@ void* trial_worker(void *varg)
     return NULL;
 }
 
-double feynman_pthreads_1d(const double a, const int ni, const int N) 
+double feynman_pthreads_1d(const double a, const int N) 
 {
     int n_inside = 0;   // broj tacaka unutar elipsoida (unutar mreze)
 
-    for (int i = 1; i <= ni; i++)
+    for (int i = 1; i <= NI; i++)
     {
         // interpolacija koordinata kako bi se dobilo kada je i = 1 -> x = -a, kada je i = NI -> x = a
-        double x = ((double)(ni - i) * (-a) + (double)(i - 1) * a) / (double)(ni - 1);
+        double x = ((double)(NI - i) * (-a) + (double)(i - 1) * a) / (double)(NI - 1);
         double chk = pow(x / a, 2);
         w_exact[i] = 0.0;
         wt[i] = 0.0;
@@ -128,6 +126,7 @@ double feynman_pthreads_1d(const double a, const int ni, const int N)
 
         // tacka je unutar 1-D elipsoida
         n_inside++;
+
         w_exact[i] = exp(pow(x / a, 2) - 1.0);
 
         pthread_t threads[num_threads];
@@ -182,7 +181,7 @@ int main ( int argc, char **argv )
 
     printf("TEST: N=%d, num_threads=%d\n", N, num_threads);
     double wtime = omp_get_wtime();
-    double err = feynman_pthreads_1d(a, ni, N);
+    double err = feynman_pthreads_1d(a, N);
     wtime = omp_get_wtime() - wtime;
     printf("%d    %lf    %lf\n", N, err, wtime);
     printf("TEST END\n");

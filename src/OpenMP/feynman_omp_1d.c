@@ -5,7 +5,14 @@
 #include <omp.h>
 #include "util.h"
 
-#define DIMENSIONS 1
+#define DIMENSIONS  1
+#define NI          11
+
+static double a = 2.0;
+static double h = 0.0001;
+
+static double stepsz;
+
 
 // potencijalna energiju u nekom centralno simetricnom polju unutar elipsoida - ovde je to 1 dimenzija
 // energija veca sto je tacka dalja od centra i sto su dimenzije elipsoida manje - ovde je to 1 dimenzija
@@ -36,14 +43,14 @@ double r8_uniform_01(int *seed)
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-double feynman_1(const double a, const double h, const double stepsz, const int ni, const int N) 
+double feynman_1(const double a, const double h, const double stepsz, const int N) 
 {
   int seed = 123456789;
   double err = 0.0;
   int n_inside = 0;   // broj tacaka unutar elipsoida (unutar mreze)
 
 
-#pragma omp parallel default(none) shared(a, h, stepsz, ni, N) \
+#pragma omp parallel default(none) shared(a, h, stepsz, N) \
                                    firstprivate(seed) \
                                    reduction(+ : err) \
                                    reduction(+ : n_inside)
@@ -52,10 +59,10 @@ double feynman_1(const double a, const double h, const double stepsz, const int 
   seed += omp_get_thread_num();
 
 #pragma omp for schedule(static, 1)
-  for (int i = 1; i <= ni; i++)
+  for (int i = 1; i <= NI; i++)
   {
     // interpolacija koordinata kako bi se dobilo kada je i = 1 -> x = -a, kada je i = ni -> x = a
-    double x = ((double)(ni - i) * (-a) + (double)(i - 1) * a) / (double)(ni - 1);
+    double x = ((double)(NI - i) * (-a) + (double)(i - 1) * a) / (double)(NI - 1);
     double chk = pow(x / a, 2);
 
     double w_exact = 0;
@@ -64,8 +71,6 @@ double feynman_1(const double a, const double h, const double stepsz, const int 
     if (1.0 < chk)
     {
       // tacka nije unutar 1-D elipsoida
-      w_exact = 1.0;
-      wt = 1.0;
       continue;
     }
     // tacka je unutar 1-D elipsoida
@@ -87,8 +92,7 @@ double feynman_1(const double a, const double h, const double stepsz, const int 
       while (chk < 1.0)
       {
         // da li se pomeramo za +stepsz ili -stepsz
-        double us;
-        double dx;
+        double us, dx = 0;
 
         us = r8_uniform_01(&seed) - 0.5;
         if (us < 0.0)
@@ -121,12 +125,6 @@ double feynman_1(const double a, const double h, const double stepsz, const int 
 
     // kvadrat razlike tacne i numericki dobijene vrednosti
     err += pow(w_exact - wt, 2);
-
-#ifdef DEBUG
-    printf("  %7.4f  %7.4f  %7.4f  %10.4e  %10.4e  %10.4e  %8d\n",
-            x, y, z, wt, w_exact, fabs(w_exact - wt), steps / N);
-#endif
-  
   }
 } // parallel
   // root-mean-square (RMS) error
@@ -134,16 +132,10 @@ double feynman_1(const double a, const double h, const double stepsz, const int 
 }
 
 
-double (*FUNCS[])(const double, const double, const double, const int, const int) = {feynman_1};
+double (*FUNCS[])(const double, const double, const double, const int) = {feynman_1};
 
 int main ( int argc, char **argv )
 {
-  const double a = 2.0;
-  const double h = 0.0001;
-  const int ni = 11;
-
-  const double stepsz = sqrt(DIMENSIONS * h);
-
   if (argc < 3)
   {
     printf("Invalid number of arguments passed.\n");
@@ -156,9 +148,11 @@ int main ( int argc, char **argv )
   // numer of walks per point
   const int N = atoi(argv[2]);
 
+  stepsz = sqrt(DIMENSIONS * h);
+
   printf("TEST: func=%d, N=%d, num_threads=%ld\n", func, N, get_num_threads());
   double wtime = omp_get_wtime();
-  double err = FUNCS[func](a, h, stepsz, ni, N);
+  double err = FUNCS[func](a, h, stepsz, N);
   wtime = omp_get_wtime() - wtime;
   printf("%d    %lf    %lf\n", N, err, wtime);
   printf("TEST END\n");
