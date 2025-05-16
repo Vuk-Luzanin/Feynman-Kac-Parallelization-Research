@@ -40,7 +40,7 @@ TESTS = {
     'feynman_omp_2d': {
         'type': 'omp',
         'args': [[1000], [5000], [10000], [20000]],
-        'funcs': 1,
+        'funcs': 4,
         'x': lambda result: [int(result[0][0])],
         'y': lambda result, seq_result: [max(float(seq_result[0][2]), 0.0000001) / max(float(result[0][2]), 0.0000001)],
         'same': lambda result1, result2: (abs(float(result1[0][1]) - float(result2[0][1])) <= ACCURACY),
@@ -49,7 +49,7 @@ TESTS = {
     'feynman_omp_3d': {
         'type': 'omp',
         'args': [[1000], [5000], [10000], [20000]],
-        'funcs': 3,
+        'funcs': 4,
         'x': lambda result: [int(result[0][0])],
         'y': lambda result, seq_result: [max(float(seq_result[0][2]), 0.0000001) / max(float(result[0][2]), 0.0000001)],
         'same': lambda result1, result2: (abs(float(result1[0][1]) - float(result2[0][1])) <= ACCURACY),
