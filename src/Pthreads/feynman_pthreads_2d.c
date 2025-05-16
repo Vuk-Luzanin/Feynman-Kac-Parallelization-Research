@@ -6,6 +6,7 @@
 #include <omp.h>  // used only for time measurement and passing number of threads -> to uniform the run.py script
 #include "util.h"
 
+#define NUM_LOCKS   256
 #define DIMENSIONS  2
 #define NI          16
 #define NJ          11
@@ -14,6 +15,8 @@ int num_threads = 8;
 
 static double wt[NI+1][NJ+1] = {{0}};
 static double w_exact[NI+1][NJ+1] = {{0}};
+
+static pthread_mutex_t wt_mutexes[NUM_LOCKS];
 
 static double a = 2.0;
 static double b = 1.0;
@@ -28,8 +31,6 @@ typedef struct
     int start_trial;
     int end_trial;
 } trial_arg_t;
-
-static pthread_mutex_t wt_mutex;
 
 
 double potential ( double a, double b, double x, double y )
@@ -59,85 +60,116 @@ double r8_uniform_01(int *seed)
   return r;
 }
 
+
+void init_locks() {
+  for (int i = 0; i < NUM_LOCKS; i++) {
+    pthread_mutex_init(&wt_mutexes[i], NULL);
+  }
+}
+
+void destroy_locks() {
+  for (int i = 0; i < NUM_LOCKS; i++) {
+    pthread_mutex_destroy(&wt_mutexes[i]);
+  }
+}
+
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+// something like hash function that maps indexes (i, j and k) into index of lock that is used for that group of elements
+// treba obratiti paznju na to sto se nece sve brave podjednako koristiti (brave za tacke van elipsoida nece biti koriscene)
+unsigned int get_lock_index(int i, int j) 
+{
+  unsigned int hash = (unsigned int)(
+    i * 73856093 ^ 
+    j * 19349663
+  );
+  return hash % NUM_LOCKS;
+}
 
 
 void* trial_worker(void *varg)
 {
-    trial_arg_t *arg = (trial_arg_t*) varg;
+  trial_arg_t *arg = (trial_arg_t*) varg;
 
-    for (int trial_id = arg->start_trial; trial_id < arg->end_trial; trial_id++) {
-        int seed = 123456789u + trial_id;
-        double x1 = arg->x0;
-        double x2 = arg->y0;
+  for (int trial_id = arg->start_trial; trial_id < arg->end_trial; trial_id++) {
+    int seed = 123456789u + trial_id;
+    double x1 = arg->x0;
+    double x2 = arg->y0;
 
-        double w = 1.0;
-        double chk = 0.0;
+    double w = 1.0;
+    double chk = 0.0;
 
-        while (chk < 1.0) {
-            double ut = r8_uniform_01 ( &seed );
+    while (chk < 1.0) 
+    {
+#ifdef SMALL_STEP
+      double dx = ((double)rand() / RAND_MAX - 0.5) * sqrt((DIMENSIONS*1.0) * h);
+      double dy = ((double)rand() / RAND_MAX - 0.5) * sqrt((DIMENSIONS*1.0) * h);
+#else
+      double ut = r8_uniform_01 ( &seed );
 
-            double us;
-            double dx = 0;
-            double dy = 0;
+      double us;
+      double dx = 0;
+      double dy = 0;
 
-            if ( ut < 1.0 / 2.0 )
-            {
-                us = r8_uniform_01 ( &seed ) - 0.5;
-                if ( us < 0.0)
-                {
-                    dx = - stepsz;
-                } 
-                else
-                {
-                    dx = stepsz;
-                }
-            } 
-            else
-            {
-                dx = 0.0;
-            }
-
-            ut = r8_uniform_01(&seed);
-            if ( ut < 1.0 / 2.0 )
-            {
-                us = r8_uniform_01(&seed) - 0.5;
-                if (us < 0.0)
-                { 
-                    dy = - stepsz;
-                }
-                else
-                {
-                    dy = stepsz;
-                }
-            }
-            else
-            {
-                dy = 0.0;
-            }
-
-            // potential before moving
-            double vs = potential(a, b, x1, x2);
-
-            // move
-            x1 = x1 + dx;
-            x2 = x2 + dy;
-            
-            // potential after moving
-            double vh = potential(a, b, x1, x2);
-
-            double we = (1.0 - h * vs) * w;           // Euler-ov korak
-            w = w - 0.5 * h * (vh * we + vs * w);     // trapezna aproksimacija
-    
-            chk = pow(x1 / a, 2) + pow(x2 / b, 2);
+      if ( ut < 1.0 / 2.0 )
+      {
+        us = r8_uniform_01 ( &seed ) - 0.5;
+        if ( us < 0.0)
+        {
+          dx = - stepsz;
+        } 
+        else
+        {
+          dx = stepsz;
         }
+      } 
+      else
+      {
+        dx = 0.0;
+      }
 
-        pthread_mutex_lock(&wt_mutex);
-        wt[arg->i][arg->j] += w;
-        pthread_mutex_unlock(&wt_mutex);
+      ut = r8_uniform_01(&seed);
+      if ( ut < 1.0 / 2.0 )
+      {
+        us = r8_uniform_01(&seed) - 0.5;
+        if (us < 0.0)
+        { 
+          dy = - stepsz;
+        }
+        else
+        {
+          dy = stepsz;
+        }
+      }
+      else
+      {
+        dy = 0.0;
+      }
+#endif
+      // potential before moving
+      double vs = potential(a, b, x1, x2);
+
+      // move
+      x1 = x1 + dx;
+      x2 = x2 + dy;
+      
+      // potential after moving
+      double vh = potential(a, b, x1, x2);
+
+      double we = (1.0 - h * vs) * w;           // Euler-ov korak
+      w = w - 0.5 * h * (vh * we + vs * w);     // trapezna aproksimacija
+
+      chk = pow(x1 / a, 2) + pow(x2 / b, 2);
     }
 
-    return NULL;
+    int lock_id = get_lock_index(arg->i, arg->j);
+    pthread_mutex_lock(&wt_mutexes[lock_id]);
+    wt[arg->i][arg->j] += w;
+    pthread_mutex_unlock(&wt_mutexes[lock_id]);
+  }
+
+  return NULL;
 }
 
 
@@ -202,9 +234,9 @@ double feynman_pthreads_1d(const double a, const double b, const int N)
 
   double err = 0.0;
   for (int i = 0; i <= NI; ++i)
-      for (int j = 0; j <= NJ; ++j)
-          if (w_exact[i][j] != 0.0)
-              err += pow(w_exact[i][j] - (wt[i][j] / (double)(N)), 2);
+    for (int j = 0; j <= NJ; ++j)
+      if (w_exact[i][j] != 0.0)
+        err += pow(w_exact[i][j] - (wt[i][j] / (double)(N)), 2);
 
   // root-mean-square (RMS) error
   return sqrt(err / (double)(n_inside));
@@ -223,8 +255,8 @@ int main ( int argc, char **argv )
   num_threads = get_num_threads();
 
   stepsz = sqrt(DIMENSIONS * h);
-  pthread_mutex_init(&wt_mutex, NULL);
 
+  init_locks();
 
   printf("TEST: N=%d, num_threads=%d\n", N, num_threads);
   double wtime = omp_get_wtime();
@@ -233,7 +265,7 @@ int main ( int argc, char **argv )
   printf("%d    %lf    %lf\n", N, err, wtime);
   printf("TEST END\n");
 
-  pthread_mutex_destroy(&wt_mutex);
+  destroy_locks();
 
   return 0;
 }

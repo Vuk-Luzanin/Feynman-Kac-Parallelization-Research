@@ -245,7 +245,7 @@ double feynman_2(const double a, const double h, const double stepsz, const int 
 
 omp_lock_t locks[NUM_LOCKS];
 
-// something like hash function that maps indexes (i, j and k) into index of lock that is used for that group of elements
+// something like hash function that maps indexes (i) into index of lock that is used for that group of elements
 // treba obratiti paznju na to sto se nece sve brave podjednako koristiti (brave za tacke van elipsoida nece biti koriscene)
 unsigned int get_lock_index(int i) 
 {

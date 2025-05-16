@@ -6,6 +6,7 @@
 #include <omp.h> // used only for time measurement and passing number of threads -> to uniform the run.py script
 #include "util.h"
 
+#define NUM_LOCKS   256
 #define DIMENSIONS  3
 #define NI          16
 #define NJ          11
@@ -15,6 +16,8 @@ int num_threads = 8;
 
 static double wt[NI+1][NJ+1][NK+1] = {{{0}}};
 static double w_exact[NI+1][NJ+1][NK+1] = {{{0}}};
+
+static pthread_mutex_t wt_mutexes[NUM_LOCKS];
 
 static double a = 3.0;
 static double b = 2.0;
@@ -31,7 +34,6 @@ typedef struct
     int end_trial;
 } trial_arg_t;
 
-static pthread_mutex_t wt_mutex;
 
 double potential(double a, double b, double c, double x, double y, double z)
 {
@@ -48,6 +50,34 @@ double r8_uniform_01(int *seed)
     return (double)(*seed) * 4.656612875E-10;
 }
 
+
+void init_locks() {
+    for (int i = 0; i < NUM_LOCKS; i++) {
+        pthread_mutex_init(&wt_mutexes[i], NULL);
+    }
+}
+
+void destroy_locks() {
+    for (int i = 0; i < NUM_LOCKS; i++) {
+        pthread_mutex_destroy(&wt_mutexes[i]);
+    }   
+}
+
+
+// something like hash function that maps indexes (i, j and k) into index of lock that is used for that group of elements
+// treba obratiti paznju na to sto se nece sve brave podjednako koristiti (brave za tacke van elipsoida nece biti koriscene)
+unsigned int get_lock_index(int i, int j, int k) 
+{
+  unsigned int hash = (unsigned int)(
+      i * 73856093 ^ 
+      j * 19349663 ^ 
+      k * 83492791
+  );
+  return hash % NUM_LOCKS;
+}
+
+
+
 void* trial_worker(void *varg)
 {
     trial_arg_t *arg = (trial_arg_t*) varg;
@@ -61,7 +91,13 @@ void* trial_worker(void *varg)
         double w = 1.0;
         double chk = 0.0;
 
-        while (chk < 1.0) {
+        while (chk < 1.0) 
+        {
+#ifdef SMALL_STEP
+            double dx = ((double)rand() / RAND_MAX - 0.5) * sqrt((DIMENSIONS*1.0) * h);
+            double dy = ((double)rand() / RAND_MAX - 0.5) * sqrt((DIMENSIONS*1.0) * h);
+            double dz = ((double)rand() / RAND_MAX - 0.5) * sqrt((DIMENSIONS*1.0) * h);
+#else
             double ut = r8_uniform_01(&seed);
             double us, dx = 0, dy = 0, dz = 0;
 
@@ -84,7 +120,7 @@ void* trial_worker(void *varg)
                 us = r8_uniform_01(&seed) - 0.5;
                 dz = (us < 0.0) ? -stepsz : stepsz;
             }
-
+#endif
             double vs = potential(a, b, c, x1, x2, x3);
             x1 += dx; x2 += dy; x3 += dz;
             double vh = potential(a, b, c, x1, x2, x3);
@@ -93,11 +129,11 @@ void* trial_worker(void *varg)
             chk = pow(x1 / a, 2) + pow(x2 / b, 2) + pow(x3 / c, 2);
         }
 
-        pthread_mutex_lock(&wt_mutex);
+        int lock_id = get_lock_index(arg->i, arg->j, arg->k);
+        pthread_mutex_lock(&wt_mutexes[lock_id]);
         wt[arg->i][arg->j][arg->k] += w;
-        pthread_mutex_unlock(&wt_mutex);
+        pthread_mutex_unlock(&wt_mutexes[lock_id]);
     }
-
     return NULL;
 }
 
@@ -181,7 +217,8 @@ int main(int argc, char **argv)
     num_threads = get_num_threads();
 
     stepsz = sqrt(DIMENSIONS * h);
-    pthread_mutex_init(&wt_mutex, NULL);
+
+    init_locks();
 
     printf("TEST: N=%d, num_threads=%d\n", N, num_threads);
     double wtime = omp_get_wtime();
@@ -190,7 +227,7 @@ int main(int argc, char **argv)
     printf("%d    %lf    %lf\n", N, err, wtime);
     printf("TEST END\n");
 
-    pthread_mutex_destroy(&wt_mutex);
+    destroy_locks();
 
     return 0;
 }

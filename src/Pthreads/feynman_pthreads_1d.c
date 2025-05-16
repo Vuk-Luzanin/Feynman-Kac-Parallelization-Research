@@ -6,6 +6,7 @@
 #include <omp.h> // used only for time measurement and passing number of threads -> to uniform the run.py script
 #include "util.h"
 
+#define NUM_LOCKS   256
 #define DIMENSIONS  1
 #define NI          11
 
@@ -19,6 +20,8 @@ int num_threads = 8;
 static double wt[NI+1] = {0};
 static double w_exact[NI+1] = {0};
 
+static pthread_mutex_t wt_mutexes[NUM_LOCKS];
+
 typedef struct 
 {
     int i;
@@ -27,7 +30,6 @@ typedef struct
     int end_trial;
 } trial_arg_t;
 
-static pthread_mutex_t wt_mutex;
 
 double potential ( double a, double x )
 {
@@ -54,6 +56,30 @@ double r8_uniform_01(int *seed)
 }
 
 
+void init_locks() {
+    for (int i = 0; i < NUM_LOCKS; i++) {
+        pthread_mutex_init(&wt_mutexes[i], NULL);
+    }
+}
+
+void destroy_locks() {
+    for (int i = 0; i < NUM_LOCKS; i++) {
+        pthread_mutex_destroy(&wt_mutexes[i]);
+    }
+}
+
+
+// something like hash function that maps indexes (i, j and k) into index of lock that is used for that group of elements
+// treba obratiti paznju na to sto se nece sve brave podjednako koristiti (brave za tacke van elipsoida nece biti koriscene)
+unsigned int get_lock_index(int i) 
+{
+  unsigned int hash = (unsigned int)(
+      i * 73856093 
+  );
+  return hash % NUM_LOCKS;
+}
+
+
 void* trial_worker(void *varg)
 {
     trial_arg_t *arg = (trial_arg_t*) varg;
@@ -69,6 +95,9 @@ void* trial_worker(void *varg)
         // kretanje cestice - dok se nalazi unutar elipsoida
         while (chk < 1.0) 
         {
+#ifdef SMALL_STEP
+            double dx = ((double)rand() / RAND_MAX - 0.5) * sqrt((DIMENSIONS*1.0) * h);
+#else
             double us, dx = 0;
 
             us = r8_uniform_01(&seed) - 0.5;
@@ -80,16 +109,13 @@ void* trial_worker(void *varg)
             {
                 dx = stepsz;
             }
-
+#endif
             // potential before moving
             double vs = potential(a, x1);
 
             // move
             x1 = x1 + dx;
 
-#ifdef DEBUG
-            ++steps;
-#endif
             // potential after moving
             double vh = potential(a, x1);
 
@@ -99,11 +125,11 @@ void* trial_worker(void *varg)
             chk = pow(x1 / a, 2);
         }
 
-        pthread_mutex_lock(&wt_mutex);
+        int lock_id = get_lock_index(arg->i);
+        pthread_mutex_lock(&wt_mutexes[lock_id]);
         wt[arg->i] += w;
-        pthread_mutex_unlock(&wt_mutex);
+        pthread_mutex_unlock(&wt_mutexes[lock_id]);
     }
-
     return NULL;
 }
 
@@ -177,7 +203,8 @@ int main ( int argc, char **argv )
     num_threads = get_num_threads();
 
     stepsz = sqrt(DIMENSIONS * h);
-    pthread_mutex_init(&wt_mutex, NULL);
+    
+    init_locks();
 
     printf("TEST: N=%d, num_threads=%d\n", N, num_threads);
     double wtime = omp_get_wtime();
@@ -186,7 +213,7 @@ int main ( int argc, char **argv )
     printf("%d    %lf    %lf\n", N, err, wtime);
     printf("TEST END\n");
 
-    pthread_mutex_destroy(&wt_mutex);
+    destroy_locks();
 
     return 0;
 }
