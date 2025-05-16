@@ -361,7 +361,7 @@ double feynman_3(const double a, const double h, const double stepsz, const int 
   return sqrt(err / (double)(n_inside));
 }
 
-double (*FUNCS[])(const double, const double, const double, const int) = {feynman_1};
+double (*FUNCS[])(const double, const double, const double, const int) = {feynman_1, feynman_2, feynman_3};
 
 int main ( int argc, char **argv )
 {

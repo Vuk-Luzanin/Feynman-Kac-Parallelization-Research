@@ -15,7 +15,7 @@ python3 run.py <test_name>
 
 Where <test_name> is optional (prime, feynman, moldyn). If omitted, all tests will be executed.
 
-Compiled binaries, logs, and generated SVG charts are placed in the gen/ directory.
+Compiled binaries, logs, and generated SVG charts are placed in the result/ directory.
 
 ## Report
 

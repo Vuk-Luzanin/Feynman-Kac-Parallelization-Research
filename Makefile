@@ -1,5 +1,11 @@
 # all compiled code will be stored in gen directory
-BUILD_DIR = gen
+BUILD_DIR = result
+
+# per-strategy build directories
+OMP_BUILD_DIR = $(BUILD_DIR)/feynman_omp
+PTHREADS_BUILD_DIR = $(BUILD_DIR)/feynman_pthreads
+
+
 # where all source code is located
 SOURCE_DIR = src
 OMP_DIR = $(SOURCE_DIR)/OpenMP
@@ -23,32 +29,36 @@ endif
 # $(@) stands for target -> written before : -> $(BUILD_DIR)/prime
 
 # all is defined as main target when running make
-all: $(BUILD_DIR)/feynman_omp_1d $(BUILD_DIR)/feynman_omp_2d $(BUILD_DIR)/feynman_omp_3d \
-	 $(BUILD_DIR)/feynman_pthreads_1d $(BUILD_DIR)/feynman_pthreads_2d $(BUILD_DIR)/feynman_pthreads_3d
+all: $(OMP_BUILD_DIR)/feynman_omp_1d $(OMP_BUILD_DIR)/feynman_omp_2d $(OMP_BUILD_DIR)/feynman_omp_3d \
+	 $(PTHREADS_BUILD_DIR)/feynman_pthreads_1d $(PTHREADS_BUILD_DIR)/feynman_pthreads_2d $(PTHREADS_BUILD_DIR)/feynman_pthreads_3d
 
 # OpenMP
-$(BUILD_DIR)/feynman_omp_1d: $(OMP_DIR)/feynman_omp_1d.c $(SOURCE_DIR)/util.c | $(BUILD_DIR)
+$(OMP_BUILD_DIR)/feynman_omp_1d: $(OMP_DIR)/feynman_omp_1d.c $(SOURCE_DIR)/util.c | $(OMP_BUILD_DIR)
 	$(OMPCC) $(CC_FLAGS) $(^) -o $(@) $(LIBS)
 
-$(BUILD_DIR)/feynman_omp_2d: $(OMP_DIR)/feynman_omp_2d.c $(SOURCE_DIR)/util.c | $(BUILD_DIR)
+$(OMP_BUILD_DIR)/feynman_omp_2d: $(OMP_DIR)/feynman_omp_2d.c $(SOURCE_DIR)/util.c | $(OMP_BUILD_DIR)
 	$(OMPCC) $(CC_FLAGS) $(^) -o $(@) $(LIBS)
 
-$(BUILD_DIR)/feynman_omp_3d: $(OMP_DIR)/feynman_omp_3d.c $(SOURCE_DIR)/util.c | $(BUILD_DIR)
+$(OMP_BUILD_DIR)/feynman_omp_3d: $(OMP_DIR)/feynman_omp_3d.c $(SOURCE_DIR)/util.c | $(OMP_BUILD_DIR)
 	$(OMPCC) $(CC_FLAGS) $(^) -o $(@) $(LIBS)
 
 
 #Pthreads
-$(BUILD_DIR)/feynman_pthreads_1d: $(PTHREADS_DIR)/feynman_pthreads_1d.c $(SOURCE_DIR)/util.c | $(BUILD_DIR)
+$(PTHREADS_BUILD_DIR)/feynman_pthreads_1d: $(PTHREADS_DIR)/feynman_pthreads_1d.c $(SOURCE_DIR)/util.c | $(PTHREADS_BUILD_DIR)
 	$(OMPCC) $(CC_FLAGS) $(^) -o $(@) $(LIBS) -lpthread
 
-$(BUILD_DIR)/feynman_pthreads_2d: $(PTHREADS_DIR)/feynman_pthreads_2d.c $(SOURCE_DIR)/util.c | $(BUILD_DIR)
+$(PTHREADS_BUILD_DIR)/feynman_pthreads_2d: $(PTHREADS_DIR)/feynman_pthreads_2d.c $(SOURCE_DIR)/util.c | $(PTHREADS_BUILD_DIR)
 	$(OMPCC) $(CC_FLAGS) $(^) -o $(@) $(LIBS) -lpthread
 
-$(BUILD_DIR)/feynman_pthreads_3d: $(PTHREADS_DIR)/feynman_pthreads_3d.c $(SOURCE_DIR)/util.c | $(BUILD_DIR)
+$(PTHREADS_BUILD_DIR)/feynman_pthreads_3d: $(PTHREADS_DIR)/feynman_pthreads_3d.c $(SOURCE_DIR)/util.c | $(PTHREADS_BUILD_DIR)
 	$(OMPCC) $(CC_FLAGS) $(^) -o $(@) $(LIBS) -lpthread
 
-$(BUILD_DIR):		# when running this, execute this command: this command will run if $(BUILD_DIR) does not exist, -p adds parent directories in the path of the new one
-	mkdir -p $(BUILD_DIR)
+# create needed directories
+$(OMP_BUILD_DIR):
+	mkdir -p $@
+
+$(PTHREADS_BUILD_DIR):
+	mkdir -p $@
 
 # removing gen directory
 clean:

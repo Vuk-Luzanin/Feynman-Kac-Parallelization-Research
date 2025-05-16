@@ -10,7 +10,7 @@ from matplotlib import pyplot as plt
 import numpy as np
 
 SCRIPT_DIR = dirname(realpath(__file__))
-BUILD_DIR = join(SCRIPT_DIR, 'gen')
+BUILD_DIR = join(SCRIPT_DIR, 'result')
 ACCURACY = 0.01
 
 Result = List[List[str]]
@@ -27,11 +27,12 @@ def run_make():
         print("Make command not found. Please ensure that 'make' is installed.", file=sys.stderr)
         sys.exit(1)
 
+# IMPORTANT: Testove nazivati u formatu feynman_{tehnologija}_{DIMENSION}D
 TESTS = {
     'feynman_omp_1d': {
         'type': 'omp',
         'args': [[1000], [5000], [10000], [20000]],
-        'funcs': 4,
+        'funcs': 3,
         'x': lambda result: [int(result[0][0])],
         'y': lambda result, seq_result: [max(float(seq_result[0][2]), 0.0000001) / max(float(result[0][2]), 0.0000001)],
         'same': lambda result1, result2: (abs(float(result1[0][1]) - float(result2[0][1])) <= ACCURACY),
@@ -91,19 +92,22 @@ def run_test(func_num: int, test_type: str, exe_name: str, args: List[int], num_
     # Convert all provided arguments to strings, since command-line arguments must be strings
     stringified_args = [str(arg) for arg in args]
 
+    subdir = exe_name.rsplit('_', 1)[0]  # npr. "feynman_omp_1d" -> "feynman_omp"
+    exe_path = join(BUILD_DIR, subdir, exe_name)
+
     # If the test type is OpenMP
     if test_type == 'omp':
         # Set the number of OpenMP threads in the environment for this process
         process_env['OMP_NUM_THREADS'] = str(num_threads)
         # Prepare the base arguments for executing the program (path to executable + function number)
-        process_args = [f'{BUILD_DIR}/{exe_name}', str(func_num)]
+        process_args = [exe_path, str(func_num)]
         # Build the log file name based on the command arguments
         log_filename = ' '.join(process_args + stringified_args + [str(num_threads)])
     elif test_type == 'pthreads':       # IMPORTANT: PTHREADS reads number of threads from OMP_NUM_THREADS variable
         # Set the number of OpenMP threads in the environment for this process
         process_env['OMP_NUM_THREADS'] = str(num_threads)
         # Prepare the base arguments for executing the program (path to executable + function number)
-        process_args = [f'{BUILD_DIR}/{exe_name}']
+        process_args = [exe_path]
         # Build the log file name based on the command arguments
         log_filename = ' '.join(process_args + stringified_args + [str(num_threads)])
 
@@ -235,8 +239,12 @@ def run_tests(test_name: str, test_data: Dict[str, Any]):
             plt.xticks(x_axis, x_labels)
             plt.legend()
 
+            short_name = test_name[:-3]
+            svg_dir = join(BUILD_DIR, short_name)
+
             # Save the plot as an SVG file
-            plt.savefig(join(BUILD_DIR, f'results-{test_name}-{func_num}-{arg_idx}.svg'))
+            svg_filename = f'results-{test_name}-{func_num}-{arg_idx}.svg'
+            plt.savefig(join(svg_dir, svg_filename))
             plt.close()
     
     # After all tests are run, print that the test has passed
