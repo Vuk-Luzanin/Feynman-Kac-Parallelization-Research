@@ -9,7 +9,8 @@ PTHREADS_DIR = $(SOURCE_DIR)/Pthreads
 OMPCC = gcc -fopenmp
 CC_FLAGS = -O3
 CC_FLAGS += -Wall -Wextra
-CC_FLAGS += -I$(SOURCE_DIR)  # include path so util.h can be found -> to know where to find .h files
+# include path so util.h can be found -> to know where to find .h files
+CC_FLAGS += -I$(SOURCE_DIR)  
 LIBS = -lm
 
 ifeq ($(DEBUG), 1)
@@ -23,7 +24,7 @@ endif
 
 # all is defined as main target when running make
 all: $(BUILD_DIR)/feynman_omp_1d $(BUILD_DIR)/feynman_omp_2d $(BUILD_DIR)/feynman_omp_3d \
-	 $(BUILD_DIR)/feynman_pthreads_1d $(BUILD_DIR)/feynman_pthreads_3d
+	 $(BUILD_DIR)/feynman_pthreads_1d $(BUILD_DIR)/feynman_pthreads_2d $(BUILD_DIR)/feynman_pthreads_3d
 
 # OpenMP
 $(BUILD_DIR)/feynman_omp_1d: $(OMP_DIR)/feynman_omp_1d.c $(SOURCE_DIR)/util.c | $(BUILD_DIR)
@@ -38,6 +39,9 @@ $(BUILD_DIR)/feynman_omp_3d: $(OMP_DIR)/feynman_omp_3d.c $(SOURCE_DIR)/util.c | 
 
 #Pthreads
 $(BUILD_DIR)/feynman_pthreads_1d: $(PTHREADS_DIR)/feynman_pthreads_1d.c $(SOURCE_DIR)/util.c | $(BUILD_DIR)
+	$(OMPCC) $(CC_FLAGS) $(^) -o $(@) $(LIBS) -lpthread
+
+$(BUILD_DIR)/feynman_pthreads_2d: $(PTHREADS_DIR)/feynman_pthreads_2d.c $(SOURCE_DIR)/util.c | $(BUILD_DIR)
 	$(OMPCC) $(CC_FLAGS) $(^) -o $(@) $(LIBS) -lpthread
 
 $(BUILD_DIR)/feynman_pthreads_3d: $(PTHREADS_DIR)/feynman_pthreads_3d.c $(SOURCE_DIR)/util.c | $(BUILD_DIR)

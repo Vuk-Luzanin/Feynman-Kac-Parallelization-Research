@@ -1,7 +1,7 @@
-# include <math.h>
-# include <stdlib.h>
-# include <stdio.h>
-# include <time.h>
+#include <math.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <time.h>
 #include <omp.h>
 #include "util.h"
 
@@ -22,6 +22,7 @@ double potential ( double a, double x )
   value = 2.0 * pow ( x / a / a, 2 ) + 1.0 / a / a;
   return value;
 }
+
 // generator pseudoslučajnih brojeva po uniformnoj raspodeli - svaka nit ima svoj seed, jer kada bi bio shared, uniformnost ne bi bila garantovana
 // real 8-byte number in [0,1)
 double r8_uniform_01(int *seed)

@@ -709,3 +709,45 @@ int main(int argc, char **argv)
 */
 
 
+// SETTING NI, NJ and NK
+// Choose the smallest of a, b, and c. Set the corresponding grid dimension (ni, nj, or nk) to 6. Then, scale the other two grid dimensions proportionally using:
+// other_dim = 1 + ceil(physical_dim / smallest_dim) * (smallest_grid_dim - 1)
+
+/*
+int i4_ceiling(double x)
+{
+    int value = (int)x;
+    if (value < x)
+        value = value + 1;
+    return value;
+}
+
+int i4_min(int i1, int i2)
+{
+    int value;
+    if (i1 < i2)
+        value = i1;
+    else
+        value = i2;
+    return value;
+}
+
+if (a == i4_min(i4_min(a, b), c))
+{
+  ni = 6;
+  nj = 1 + i4_ceiling(b / a) * (ni - 1);
+  nk = 1 + i4_ceiling(c / a) * (ni - 1);
+}
+else if (b == i4_min(i4_min(a, b), c))
+{
+  nj = 6;
+  ni = 1 + i4_ceiling(a / b) * (nj - 1);
+  nk = 1 + i4_ceiling(c / b) * (nj - 1);
+}
+else
+{
+  nk = 6;
+  ni = 1 + i4_ceiling(a / c) * (nk - 1);
+  nj = 1 + i4_ceiling(b / c) * (nk - 1);
+}
+*/

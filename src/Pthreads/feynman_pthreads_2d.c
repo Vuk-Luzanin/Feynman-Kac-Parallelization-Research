@@ -1,8 +1,9 @@
-# include <stdlib.h>
-# include <stdio.h>
-# include <math.h>
-# include <time.h>
-#include <omp.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <math.h>
+#include <time.h>
+#include <pthread.h>
+#include <omp.h>  // used only for time measurement and passing number of threads -> to uniform the run.py script
 #include "util.h"
 
 #define DIMENSIONS  2
@@ -140,100 +141,99 @@ void* trial_worker(void *varg)
 }
 
 
-double feynman_pthreads_1d(const double a, const double b, const double h, const double stepsz, const int N) 
+double feynman_pthreads_1d(const double a, const double b, const int N) 
 {
-    int n_inside = 0;   // broj tacaka unutar elipsoida (unutar mreze)
+  int n_inside = 0;   // broj tacaka unutar elipsoida (unutar mreze)
 
-    for (int i = 1; i <= NI; i++)
+  for (int i = 1; i <= NI; i++)
+  {
+    for (int j = 1; j <= NJ; j++ )
     {
-        for (int j = 1; j <= NJ; j++ )
-        {
-            // interpolacija koordinata kako bi se dobilo kada je i = 1 -> x = -a, kada je i = ni -> x = a
-            double x = ((double)(NI - i) * (-a) + (double)(i - 1) * a) / (double)(NI - 1);
-            double y = ((double)(NJ - j) * (-b) + (double)(j - 1) * b) / (double)(NJ - 1);
-            double chk = pow(x / a, 2) + pow(y / b, 2);
+      // interpolacija koordinata kako bi se dobilo kada je i = 1 -> x = -a, kada je i = ni -> x = a
+      double x = ((double)(NI - i) * (-a) + (double)(i - 1) * a) / (double)(NI - 1);
+      double y = ((double)(NJ - j) * (-b) + (double)(j - 1) * b) / (double)(NJ - 1);
+      double chk = pow(x / a, 2) + pow(y / b, 2);
 
-            double w_exact[i][j] = 0.0;
-            double wt[i][j] = 0.0;
+      w_exact[i][j] = 0.0;
+      wt[i][j] = 0.0;
 
-            if ( 1.0 < chk )
-            {
-                // tacka nije unutar 1-D elipsoida
-                continue;
-            }
+      if ( 1.0 < chk )
+      {
+        // tacka nije unutar 1-D elipsoida
+        continue;
+      }
 
-            // tacka je unutar 2-D elipsoida
-            n_inside++;
-        
-            // analitička vrednost funkcije gustine/potencijala u tački unutar elipsoida - referentna vrednost koju poredimo u odnosu na numericku - wt
-            w_exact[i][j] = exp(pow(x / a, 2) + pow(y / b, 2) - 1.0);
+      // tacka je unutar 2-D elipsoida
+      n_inside++;
+  
+      // analitička vrednost funkcije gustine/potencijala u tački unutar elipsoida - referentna vrednost koju poredimo u odnosu na numericku - wt
+      w_exact[i][j] = exp(pow(x / a, 2) + pow(y / b, 2) - 1.0);
 
 
-            pthread_t threads[num_threads];
-            trial_arg_t args[num_threads];
-            int trials_per_thread = N / num_threads;
-            int remainder = N % num_threads;
-            int current = 0;
+      pthread_t threads[num_threads];
+      trial_arg_t args[num_threads];
+      int trials_per_thread = N / num_threads;
+      int remainder = N % num_threads;
+      int current = 0;
 
-            for (int t = 0; t < num_threads; t++) 
-            {
-                int start = current;
-                int count = trials_per_thread + (t < remainder ? 1 : 0);
-                int end = start + count;
-                current = end;
+      for (int t = 0; t < num_threads; t++) 
+      {
+        int start = current;
+        int count = trials_per_thread + (t < remainder ? 1 : 0);
+        int end = start + count;
+        current = end;
 
-                args[t].i = i;
-                args[t].j = j;
-                args[t].x0 = x;
-                args[t].y0 = y;
-                args[t].start_trial = start;
-                args[t].end_trial = end;
+        args[t].i = i;
+        args[t].j = j;
+        args[t].x0 = x;
+        args[t].y0 = y;
+        args[t].start_trial = start;
+        args[t].end_trial = end;
 
-                pthread_create(&threads[t], NULL, trial_worker, &args[t]);
-            }
+        pthread_create(&threads[t], NULL, trial_worker, &args[t]);
+      }
 
-            for (int t = 0; t < num_threads; t++) 
-            {
-                pthread_join(threads[t], NULL);
-            }
-        }
+      for (int t = 0; t < num_threads; t++) 
+      {
+          pthread_join(threads[t], NULL);
+      }
     }
+  }
 
-    double err = 0.0;
-    for (int i = 0; i <= NI; ++i)
-        for (int j = 0; j <= NJ; ++j)
-            if (w_exact[i][j] != 0.0)
-                err += pow(w_exact[i][j] - (wt[i][j] / (double)(N)), 2);
+  double err = 0.0;
+  for (int i = 0; i <= NI; ++i)
+      for (int j = 0; j <= NJ; ++j)
+          if (w_exact[i][j] != 0.0)
+              err += pow(w_exact[i][j] - (wt[i][j] / (double)(N)), 2);
 
-    // root-mean-square (RMS) error
-    return sqrt(err / (double)(n_inside));
+  // root-mean-square (RMS) error
+  return sqrt(err / (double)(n_inside));
 }
 
 
-double (*FUNCS[])(const double, const double, const double, const double, const int) = {feynman_1};
-
 int main ( int argc, char **argv )
 {
-  if (argc < 3)
+  if (argc < 2)
   {
     printf("Invalid number of arguments passed.\n");
     return 1;
   }
 
-  // index of function
-  const int func = atoi(argv[1]);
-  
-  // numer of walks per point
-  const int N = atoi(argv[2]);
+  const int N = atoi(argv[1]);
+  num_threads = get_num_threads();
 
   stepsz = sqrt(DIMENSIONS * h);
+  pthread_mutex_init(&wt_mutex, NULL);
 
-  printf("TEST: func=%d, N=%d, num_threads=%ld\n", func, N, get_num_threads());
+
+  printf("TEST: N=%d, num_threads=%d\n", N, num_threads);
   double wtime = omp_get_wtime();
-  double err = FUNCS[func](a, b, h, stepsz, N);
+  double err = feynman_pthreads_1d(a, b, N);
   wtime = omp_get_wtime() - wtime;
   printf("%d    %lf    %lf\n", N, err, wtime);
   printf("TEST END\n");
+
+  pthread_mutex_destroy(&wt_mutex);
 
   return 0;
 }

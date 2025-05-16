@@ -63,14 +63,14 @@ TESTS = {
         'same': lambda result1, result2: (abs(float(result1[0][1]) - float(result2[0][1])) <= ACCURACY),
         'threads': [1, 2, 4, 8, 16]
     },
-    # 'feynman_pthreads_2d': {
-    #     'type': 'pthreads',
-    #     'args': [[1000], [5000], [10000], [20000]],
-    #     'x': lambda result: [int(result[0][0])],
-    #     'y': lambda result, seq_result: [max(float(seq_result[0][2]), 0.0000001) / max(float(result[0][2]), 0.0000001)],
-    #     'same': lambda result1, result2: (abs(float(result1[0][1]) - float(result2[0][1])) <= ACCURACY),
-    #     'threads': [1, 2, 4, 8, 16]
-    # },
+    'feynman_pthreads_2d': {
+        'type': 'pthreads',
+        'args': [[1000], [5000], [10000], [20000]],
+        'x': lambda result: [int(result[0][0])],
+        'y': lambda result, seq_result: [max(float(seq_result[0][2]), 0.0000001) / max(float(result[0][2]), 0.0000001)],
+        'same': lambda result1, result2: (abs(float(result1[0][1]) - float(result2[0][1])) <= ACCURACY),
+        'threads': [1, 2, 4, 8, 16]
+    },
     'feynman_pthreads_3d': {
         'type': 'pthreads',
         'args': [[1000], [5000], [10000], [20000]],

@@ -172,7 +172,7 @@ int main ( int argc, char **argv )
         printf("Invalid number of arguments passed.\n");
         return 1;
     }
-
+ 
     const int N = atoi(argv[1]);
     num_threads = get_num_threads();
 
