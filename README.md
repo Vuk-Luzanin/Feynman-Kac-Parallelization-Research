@@ -9,14 +9,24 @@ Repository focused on research and implementation of parallel algorithms for the
 - `src` contains source files named as `name.c`.  
 - Tests are executed with:
 
+
 ```bash
 python3 run.py <test_name>
 ```
 
-Where <test_name> is optional (prime, feynman, moldyn). If omitted, all tests will be executed.
+Where <test_name> is optional (feynman_omp_1d, feynman_omp_2d, feynman_omp_3d, feynman_pthreads_1d, feynman_pthreads_2d, feynman_pthreads_3d). If omitted, all tests will be executed.
 
-Compiled binaries, logs, and generated SVG charts are placed in the result/ directory.
+
+In the `result/` folder, you can find:
+
+- Compiled binaries
+- Log files
+- Acceleration plots relative to the sequential implementation
+
+These files are **organized into subfolders** based on the **technology used**.  
+The folder is **automatically generated**.
+
 
 ## Report
 
-Attached is the PDF document [Report.pdf](./Reports/Report.pdf) (in Reports/ directory), in which the method of parallelization and discussion are detailed in Serbian, along with examples of result graphs.
+Attached are the PDF documents [ReportOpenMP.pdf](./Reports/ReportOpenMP.pdf) and [ReportPthreads.pdf](./Reports/ReportPthreads.pdf) (in Reports/ directory), in which the method of parallelization and discussion are detailed in Serbian, along with examples of result graphs.
