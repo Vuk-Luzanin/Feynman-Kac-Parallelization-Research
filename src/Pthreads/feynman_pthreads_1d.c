@@ -17,13 +17,15 @@ static int num_threads = 8;
 static double wt[NI+1] = {0};
 static double w_exact[NI+1] = {0};
 
+static int global_trial_index;  // globalni atomic brojac za dinamicku raspodelu posla
+
 typedef struct {
     int i;       // to add on seed
     double x;   // coordinate
 } grid_point_t;
 
 typedef struct {
-    int thread_id;
+    // int thread_id;
     int N;
     int n_inside;
     // pamti sve tacke koje su unutar elipsoida - samo za njih prolazimo algoritam
@@ -32,7 +34,7 @@ typedef struct {
 } thread_arg_t;
 
 double potential(double a, double x) {
-    return 2.0 * pow(x / a / a, 2) + 1.0 / a / a;
+    return 2.0 * (x / a / a) * (x / a / a) + 1.0 / a / a;
 }
 
 double r8_uniform_01(int *seed) {
@@ -44,7 +46,6 @@ double r8_uniform_01(int *seed) {
 
 void* worker(void *arg_) {
     thread_arg_t *arg = (thread_arg_t *)arg_;
-    int tid = arg->thread_id;
     int trials = arg->N;
     int n_inside = arg->n_inside;
 
@@ -59,9 +60,11 @@ void* worker(void *arg_) {
         // suma w za sve pokusaje koje radi jedna nit iz jedne tacke
         double local_sum = 0.0;
 
-        // lokalno, svaka tacka racuna svoje pokusaje - pomeren brojac za num_threads pri svakoj iteraciji - bolje za neravnomeran broj iteracija
-        // svaka nit radi N / num_threads iteracija
-        for (int t = tid; t < trials; t += num_threads) {
+
+        // lokalno, svaka tacka racuna svoje pokusaje - bolje za neravnomeran broj iteracija - dinamicko rasporedjivanje
+        int t;
+        while ((t = __atomic_fetch_add(&global_trial_index, 1, __ATOMIC_RELAXED)) < trials) 
+        {
             int seed = 123456789u + i * trials + t;
             double x1 = x0;
             double w = 1.0, chk = 0.0;
@@ -73,12 +76,13 @@ void* worker(void *arg_) {
                 double vh = potential(a, x1);
                 double we = (1.0 - h * vs) * w;
                 w = w - 0.5 * h * (vh * we + vs * w);
-                chk = pow(x1 / a, 2);
+                chk = (x1 / a) * (x1 / a);
             }
 
             local_sum += w;
         }
 
+        
         // dodajemo na lokalnu promenljivu
         arg->wt_local[i] += local_sum;
     }
@@ -93,13 +97,13 @@ double feynman_pthreads(const double a, const int N) {
     // pronalazimo tacke unutar elipsoida
     for (int i = 1; i <= NI; ++i) {
         double x = ((double)(NI - i) * (-a) + (double)(i - 1) * a) / (double)(NI - 1);
-        double chk = pow(x / a, 2);
+        double chk = (x / a) * (x / a);
         w_exact[i] = 0.0;
         wt[i] = 0.0;
 
         if (chk >= 1.0) continue;
 
-        w_exact[i] = exp(pow(x / a, 2) - 1.0);
+        w_exact[i] = exp((x / a) * (x / a) - 1.0);
         inside_points[n_inside].i = i;
         inside_points[n_inside].x = x;
         n_inside++;
@@ -108,8 +112,9 @@ double feynman_pthreads(const double a, const int N) {
     pthread_t threads[num_threads];
     thread_arg_t args[num_threads];
 
+    global_trial_index = 0;  // resetujemo pre pokretanja niti
+
     for (int t = 0; t < num_threads; ++t) {
-        args[t].thread_id = t;
         args[t].N = N;
         args[t].n_inside = n_inside;
         for (int j = 0; j < n_inside; ++j)
@@ -130,7 +135,7 @@ double feynman_pthreads(const double a, const int N) {
     double err = 0.0;
     for (int i = 1; i <= NI; ++i)
         if (w_exact[i] != 0.0)
-            err += pow(w_exact[i] - (wt[i] / (double)(N)), 2);
+            err += (w_exact[i] - (wt[i] / (double)(N))) * (w_exact[i] - (wt[i] / (double)(N)));
 
     return sqrt(err / (double)(n_inside));
 }
@@ -140,7 +145,7 @@ int main(int argc, char **argv) {
         printf("Usage: %s <N>\n", argv[0]);
         return 1;
     }
-
+ 
     const int N = atoi(argv[1]);
     num_threads = get_num_threads();
     stepsz = sqrt(DIMENSIONS * h);

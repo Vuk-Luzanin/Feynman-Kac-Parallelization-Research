@@ -21,12 +21,17 @@ PTHREADS_DIR = $(SOURCE_DIR)/Pthreads
 OMPCC = gcc -fopenmp
 # Ofast -> O3 + -ffast-math	
 CC_FLAGS = -Ofast
-# CC_FLAGS = -pg
+# optimization while linking
+CC_FLAGS += -flto
 # -march=native -> march (machine architecture - to be native) - finds characteristics of my cpu and uses all its instruction
 # -ftree-vectorize -> enables vectorization (use of SIMD instructions)
 CC_FLAGS += -march=native
 # -funroll-loops -> unroll the loops
 # CC_FLAGS += -funroll-loops
+
+# preuredjuej redosled i organizaciju ugnezdenih petlji
+# CC_FLAGS += -floop-interchange -floop-block -floop-strip-mine
+# CC_FLAGS += -fprefetch-loop-arrays
 CC_FLAGS += -Wall -Wextra 
 # include path so util.h can be found -> to know where to find .h files
 CC_FLAGS += -I$(SOURCE_DIR)  
