@@ -2,6 +2,8 @@
 # environment variables set:
 # export OMP_WAIT_POLICY=ACTIVE
 
+# TODO(vuk): add profiler 
+
 # all compiled code will be stored in gen directory
 BUILD_DIR = result
 
@@ -19,10 +21,12 @@ PTHREADS_DIR = $(SOURCE_DIR)/Pthreads
 OMPCC = gcc -fopenmp
 # Ofast -> O3 + -ffast-math	
 CC_FLAGS = -Ofast
-# CC_FLAGS = -fprofile-generate
+# CC_FLAGS = -pg
 # -march=native -> march (machine architecture - to be native) - finds characteristics of my cpu and uses all its instruction
-# -ftree-vectorize -> automatic vectorization of the loops
-CC_FLAGS += -march=native -ftree-vectorize
+# -ftree-vectorize -> enables vectorization (use of SIMD instructions)
+CC_FLAGS += -march=native
+# -funroll-loops -> unroll the loops
+# CC_FLAGS += -funroll-loops
 CC_FLAGS += -Wall -Wextra 
 # include path so util.h can be found -> to know where to find .h files
 CC_FLAGS += -I$(SOURCE_DIR)  
@@ -72,3 +76,17 @@ $(PTHREADS_BUILD_DIR):
 # removing gen directory
 clean:
 	rm -rf $(BUILD_DIR)
+
+
+
+
+
+
+# work with profiler:
+#  add  -fprofile-generate to CC_FLAGS
+# compile
+# this will generate gmon.out file
+# to see that file run:
+# - gprof ./result/TEST/feynman_pthreads_1d  gmon.out > analysis.txt
+# then, delete -fprofile-generate flag, and add -fprofile-use instead
+
