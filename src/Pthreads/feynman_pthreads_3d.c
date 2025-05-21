@@ -154,7 +154,7 @@ double feynman_pthreads_3d(double a, double b, double c, int N)
                 
                 w_exact[i][j][k] = 0.0;
                 wt[i][j][k] = 0.0;
-
+ 
                 if (1.0 < chk)
                     continue;
 

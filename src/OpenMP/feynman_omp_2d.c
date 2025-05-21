@@ -19,7 +19,7 @@ static double stepsz;
 
 double potential ( double a, double b, double x, double y )
 {
-  double value;
+  double value; 
   value = 2.0 * ( pow ( x / a / a, 2 ) + pow ( y / b / b, 2 ) ) + 1.0 / a / a + 1.0 / b / b;
 
   return value;

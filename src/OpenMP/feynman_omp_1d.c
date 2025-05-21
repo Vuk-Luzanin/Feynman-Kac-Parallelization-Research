@@ -463,7 +463,7 @@ int main ( int argc, char **argv )
 
     This code is distributed under the MIT license. 
 
-  Modified:
+  Modified: 
 
     31 May 2012
 

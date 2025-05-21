@@ -207,7 +207,7 @@ double feynman_pthreads_1d(const double a, const double b, const int N)
       int trials_per_thread = N / num_threads;
       int remainder = N % num_threads;
       int current = 0;
-
+ 
       for (int t = 0; t < num_threads; t++) 
       {
         int start = current;

@@ -782,7 +782,7 @@ int main(int argc, char **argv)
 ./feyman 0 10000
 ./feyman 0 20000
  */
-
+ 
  /*
  a, b and represents elipsoid - potential energy is like springs in three directions with different stiffness
  (x * x) / (a * a) + (y * y) / (b * b) + (z * z) / (c * c) <= 1.0

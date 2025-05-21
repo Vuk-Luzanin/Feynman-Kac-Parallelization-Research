@@ -27,11 +27,11 @@ CC_FLAGS += -flto
 # -ftree-vectorize -> enables vectorization (use of SIMD instructions)
 CC_FLAGS += -march=native
 # -funroll-loops -> unroll the loops
-# CC_FLAGS += -funroll-loops
+CC_FLAGS += -funroll-loops
 
 # preuredjuej redosled i organizaciju ugnezdenih petlji
-# CC_FLAGS += -floop-interchange -floop-block -floop-strip-mine
-# CC_FLAGS += -fprefetch-loop-arrays
+CC_FLAGS += -floop-interchange -floop-block -floop-strip-mine
+CC_FLAGS += -fprefetch-loop-arrays
 CC_FLAGS += -Wall -Wextra 
 # include path so util.h can be found -> to know where to find .h files
 CC_FLAGS += -I$(SOURCE_DIR)  

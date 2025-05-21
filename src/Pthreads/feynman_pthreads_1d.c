@@ -19,91 +19,132 @@ static double w_exact[NI+1] = {0};
 
 static int global_trial_index;  // globalni atomic brojac za dinamicku raspodelu posla
 
+
 typedef struct {
     int i;       // to add on seed
     double x;   // coordinate
 } grid_point_t;
 
 typedef struct {
-    // int thread_id;
+    int thread_id;
     int N;
     int n_inside;
     // pamti sve tacke koje su unutar elipsoida - samo za njih prolazimo algoritam
-    grid_point_t inside_points[MAX_INSIDE];
     double wt_local[NI+1];  // lokalni mutex za svaku nit (svaka nit rezultat akumulira u svoju lokalnu promenljivu)
 } thread_arg_t;
 
-double potential(double a, double x) {
-    return 2.0 * (x / a / a) * (x / a / a) + 1.0 / a / a;
+static grid_point_t inside_points[MAX_INSIDE];
+
+
+inline double potential(double a, double x) {
+    double a2_inv = 1.0 / (a * a);
+    return 2.0 * (x * x) * a2_inv * a2_inv + a2_inv;
 }
 
-double r8_uniform_01(int *seed) {
+inline double r8_uniform_01(int *seed) {
     int k = *seed / 127773;
     *seed = 16807 * (*seed - k * 127773) - k * 2836;
     if (*seed < 0) *seed += 2147483647;
     return (double)(*seed) * 4.656612875E-10;
 }
 
-void* worker(void *arg_) {
+// restrict - preko ovog pokazivaca se jedino pristupa ovoj lokaciji
+// dynamic work distribution 
+void* worker_dynamic(void* restrict arg_) {
     thread_arg_t *arg = (thread_arg_t *)arg_;
     int trials = arg->N;
     int n_inside = arg->n_inside;
+    int total_trials = n_inside * trials;   // Ukupno pokušaja = broj_tačaka * N
 
     // inicijalizujemo lokalni niz gresaka
-    for (int i=0; i<=NI; i++)
+    for (int i = 0; i <= NI; i++) 
         arg->wt_local[i] = 0.0;
 
-    for (int i_idx = 0; i_idx < n_inside; ++i_idx) {
-        int i = arg->inside_points[i_idx].i;
-        double x0 = arg->inside_points[i_idx].x;
+    // lokalno, svaka tacka racuna svoje pokusaje - bolje za neravnomeran broj iteracija - dinamicko rasporedjivanje
+    int t;
+    while ((t = __atomic_fetch_add(&global_trial_index, 1, __ATOMIC_RELAXED)) < total_trials) {
+        int grid_idx = t / trials;  // Određuje tačku (0..n_inside-1)
+        int trial_idx = t % trials; // Redni broj pokušaja (0..trials-1)
 
-        // suma w za sve pokusaje koje radi jedna nit iz jedne tacke
-        double local_sum = 0.0;
+        int i = inside_points[grid_idx].i;      // Globalni indeks tačke (1..NI)
+        double x0 = inside_points[grid_idx].x;  // Koordinata tačke
 
+        int seed = 123456789u + i*t + trial_idx;  // Seed zavisi od tačke i pokušaja
+        double x1 = x0;
+        double w = 1.0;
 
-        // lokalno, svaka tacka racuna svoje pokusaje - bolje za neravnomeran broj iteracija - dinamicko rasporedjivanje
-        int t;
-        while ((t = __atomic_fetch_add(&global_trial_index, 1, __ATOMIC_RELAXED)) < trials) 
-        {
-            int seed = 123456789u + i * trials + t;
-            double x1 = x0;
-            double w = 1.0, chk = 0.0;
-
-            while (chk < 1.0) {
-                double dx = (r8_uniform_01(&seed) - 0.5 < 0) ? -stepsz : stepsz;
-                double vs = potential(a, x1);
-                x1 += dx;
-                double vh = potential(a, x1);
-                double we = (1.0 - h * vs) * w;
-                w = w - 0.5 * h * (vh * we + vs * w);
-                chk = (x1 / a) * (x1 / a);
-            }
-
-            local_sum += w;
+        while ((x1 / a) * (x1 / a) < 1.0) {
+            double dx = (r8_uniform_01(&seed) < 0.5) ? -stepsz : stepsz;
+            double vs = potential(a, x1);
+            x1 += dx;
+            double vh = potential(a, x1);
+            double we = (1.0 - h * vs) * w;
+            w = w - 0.5 * h * (vh * we + vs * w);
         }
 
-        
-        // dodajemo na lokalnu promenljivu
-        arg->wt_local[i] += local_sum;
+        arg->wt_local[i] += w;  
     }
 
     return NULL;
 }
 
+// Worker with static work distribution via round-robin stepping 
+void* worker_static(void* restrict arg_) {
+    thread_arg_t *arg = (thread_arg_t *)arg_;        
+    int trials      = arg->N;
+    int n_inside    = arg->n_inside;
+    int tid         = arg->thread_id;
+    int total_trials = n_inside * trials;   // Ukupno pokušaja = broj_tačaka * N
+
+    // initialize local accumulator
+    for (int i = 0; i <= NI; i++) {
+        arg->wt_local[i] = 0.0;
+    }
+
+    // static distribution: each thread processes t = tid, tid + n_threads, ...
+    for (int t = tid; t < total_trials; t += num_threads) {
+        int grid_idx = t / trials;
+        int trial_idx= t % trials;
+
+        int i = inside_points[grid_idx].i;
+        double x0 = inside_points[grid_idx].x;
+
+        int seed = 123456789u + i * t + trial_idx;
+        double x1 = x0;
+        double w  = 1.0;
+
+        // walk until exit
+        while ((x1 / a) * (x1 / a) < 1.0) {
+            double dx = (r8_uniform_01(&seed) < 0.5) ? -stepsz : stepsz;
+            double vs = potential(a, x1);
+            x1 += dx;
+            double vh = potential(a, x1);
+            double we = (1.0 - h * vs) * w;
+            w = w - 0.5 * h * (vh * we + vs * w);
+        }
+
+        // accumulate result
+        arg->wt_local[i] += w;
+    }
+
+    return NULL;
+}
+
+
 double feynman_pthreads(const double a, const int N) {
     int n_inside = 0;
-    grid_point_t inside_points[MAX_INSIDE];     // necemo iskoristiti ceo niz (vec samo koliko ima tacaka unutar elipse)
 
     // pronalazimo tacke unutar elipsoida
     for (int i = 1; i <= NI; ++i) {
         double x = ((double)(NI - i) * (-a) + (double)(i - 1) * a) / (double)(NI - 1);
-        double chk = (x / a) * (x / a);
+        double r = x / a;
+        double chk = r * r;
         w_exact[i] = 0.0;
         wt[i] = 0.0;
 
         if (chk >= 1.0) continue;
 
-        w_exact[i] = exp((x / a) * (x / a) - 1.0);
+        w_exact[i] = exp(r * r - 1.0);
         inside_points[n_inside].i = i;
         inside_points[n_inside].x = x;
         n_inside++;
@@ -117,25 +158,29 @@ double feynman_pthreads(const double a, const int N) {
     for (int t = 0; t < num_threads; ++t) {
         args[t].N = N;
         args[t].n_inside = n_inside;
-        for (int j = 0; j < n_inside; ++j)
-            args[t].inside_points[j] = inside_points[j];    // svaka nit dobije sve tacke
-
-        pthread_create(&threads[t], NULL, worker, &args[t]);
+        args[t].thread_id = t;
+        
+        pthread_create(&threads[t], NULL, worker_dynamic, &args[t]);
     }
 
     for (int t = 0; t < num_threads; ++t) {
         pthread_join(threads[t], NULL);
     }
 
-    // redukujemo sve lokalne rezultate
-    for (int t=0; t<num_threads; t++)
-        for (int i=0; i<=NI; i++)
+
+    for (int i = 0; i <= NI; i++) {
+        for (int t = 0; t < num_threads; t++) {
             wt[i] += args[t].wt_local[i];
+        }
+    }
 
     double err = 0.0;
     for (int i = 1; i <= NI; ++i)
         if (w_exact[i] != 0.0)
-            err += (w_exact[i] - (wt[i] / (double)(N))) * (w_exact[i] - (wt[i] / (double)(N)));
+        {
+            double diff = w_exact[i] - (wt[i] / (double)(N));
+            err += diff * diff;
+        }
 
     return sqrt(err / (double)(n_inside));
 }
