@@ -1,3 +1,7 @@
+
+# environment variables set:
+# export OMP_WAIT_POLICY=ACTIVE
+
 # all compiled code will be stored in gen directory
 BUILD_DIR = result
 
@@ -13,8 +17,13 @@ PTHREADS_DIR = $(SOURCE_DIR)/Pthreads
 
 # on my machine it is gcc-14 (regular gcc can be used instead)
 OMPCC = gcc -fopenmp
-CC_FLAGS = -O3
-CC_FLAGS += -Wall -Wextra
+# Ofast -> O3 + -ffast-math	
+CC_FLAGS = -Ofast
+# CC_FLAGS = -fprofile-generate
+# -march=native -> march (machine architecture - to be native) - finds characteristics of my cpu and uses all its instruction
+# -ftree-vectorize -> automatic vectorization of the loops
+CC_FLAGS += -march=native -ftree-vectorize
+CC_FLAGS += -Wall -Wextra 
 # include path so util.h can be found -> to know where to find .h files
 CC_FLAGS += -I$(SOURCE_DIR)  
 LIBS = -lm

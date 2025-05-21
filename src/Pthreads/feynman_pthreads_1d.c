@@ -16,7 +16,6 @@ static int num_threads = 8;
 
 static double wt[NI+1] = {0};
 static double w_exact[NI+1] = {0};
-static pthread_mutex_t wt_mutexes[NI+1]; // mutex za svaki element
 
 typedef struct {
     int i;       // to add on seed
@@ -29,6 +28,7 @@ typedef struct {
     int n_inside;
     // pamti sve tacke koje su unutar elipsoida - samo za njih prolazimo algoritam
     grid_point_t inside_points[MAX_INSIDE];
+    double wt_local[NI+1];  // lokalni mutex za svaku nit (svaka nit rezultat akumulira u svoju lokalnu promenljivu)
 } thread_arg_t;
 
 double potential(double a, double x) {
@@ -47,6 +47,10 @@ void* worker(void *arg_) {
     int tid = arg->thread_id;
     int trials = arg->N;
     int n_inside = arg->n_inside;
+
+    // inicijalizujemo lokalni niz gresaka
+    for (int i=0; i<=NI; i++)
+        arg->wt_local[i] = 0.0;
 
     for (int i_idx = 0; i_idx < n_inside; ++i_idx) {
         int i = arg->inside_points[i_idx].i;
@@ -75,15 +79,14 @@ void* worker(void *arg_) {
             local_sum += w;
         }
 
-        pthread_mutex_lock(&wt_mutexes[i]);
-        wt[i] += local_sum;
-        pthread_mutex_unlock(&wt_mutexes[i]);
+        // dodajemo na lokalnu promenljivu
+        arg->wt_local[i] += local_sum;
     }
 
     return NULL;
 }
 
-double feynman_pthreads_optimized(const double a, const int N) {
+double feynman_pthreads(const double a, const int N) {
     int n_inside = 0;
     grid_point_t inside_points[MAX_INSIDE];     // necemo iskoristiti ceo niz (vec samo koliko ima tacaka unutar elipse)
 
@@ -102,11 +105,6 @@ double feynman_pthreads_optimized(const double a, const int N) {
         n_inside++;
     }
 
-    // Inicijalizacija mutex-a
-    for (int i = 0; i <= NI; ++i) {
-        pthread_mutex_init(&wt_mutexes[i], NULL);
-    }
-
     pthread_t threads[num_threads];
     thread_arg_t args[num_threads];
 
@@ -123,6 +121,11 @@ double feynman_pthreads_optimized(const double a, const int N) {
     for (int t = 0; t < num_threads; ++t) {
         pthread_join(threads[t], NULL);
     }
+
+    // redukujemo sve lokalne rezultate
+    for (int t=0; t<num_threads; t++)
+        for (int i=0; i<=NI; i++)
+            wt[i] += args[t].wt_local[i];
 
     double err = 0.0;
     for (int i = 1; i <= NI; ++i)
@@ -144,7 +147,7 @@ int main(int argc, char **argv) {
 
     printf("TEST: N=%d, num_threads=%d\n", N, num_threads);
     double wtime = omp_get_wtime();
-    double err = feynman_pthreads_optimized(a, N);
+    double err = feynman_pthreads(a, N);
     wtime = omp_get_wtime() - wtime;
     printf("%d    %lf    %lf\n", N, err, wtime);
     printf("TEST END\n");
