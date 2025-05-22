@@ -44,6 +44,150 @@ double r8_uniform_01(int *seed)
   return r;
 }
 
+
+double feynman_0(const double a, const double b, const double h, const double stepsz, const int N) 
+{
+  int seed = 123456789;
+  double err = 0.0;
+  int n_inside = 0;   // broj tacaka unutar elipsoida (unutar mreze)
+
+  double w_exact[NI+1][NJ+1] = {{0}};
+  double wt[NI+1][NJ+1] = {{0}};
+
+#pragma omp parallel default(none) shared(a, b, h, stepsz, N, n_inside, w_exact, wt, err) \
+                                   firstprivate(seed)
+{
+  // seed is private variable, so numbers can generate uniformly
+  seed += omp_get_thread_num();
+
+  for (int i = 1; i <= NI; i++)
+  {
+    for (int j = 1; j <= NJ; j++ )
+    {
+      // interpolacija koordinata kako bi se dobilo kada je i = 1 -> x = -a, kada je i = ni -> x = a
+      double x = ((double)(NI - i) * (-a) + (double)(i - 1) * a) / (double)(NI - 1);
+      double y = ((double)(NJ - j) * (-b) + (double)(j - 1) * b) / (double)(NJ - 1);
+      double chk = pow(x / a, 2) + pow(y / b, 2);
+
+      //double w_exact = 0.0;
+      //double wt = 0.0;
+
+      if ( 1.0 < chk )
+      {
+        // tacka nije unutar 1-D elipsoida
+        continue;
+      }
+
+      // tacka je unutar 2-D elipsoida
+      #pragma omp single nowait
+      {
+        n_inside++;
+        w_exact[i][j] = exp(pow(x / a, 2) + pow(y / b, 2) - 1.0);
+      }
+
+      // pustamo N tacaka iz izabrane koordinate - visestruki pokusaji kako bi se dobila bolja aproksimacija
+      #pragma omp for nowait reduction(+:wt[i][j])
+      for (int trial = 0; trial < N; trial++)
+      {
+        double x1 = x;
+        double x2 = y;
+  
+        double w = 1.0;
+        chk = 0.0;
+
+        // kretanje cestice - dok se nalazi unutar elipsoida
+        while (chk < 1.0)
+        {
+#ifdef SMALL_STEP
+            double dx = ((double)rand() / RAND_MAX - 0.5) * sqrt((DIMENSIONS*1.0) * h);
+            double dy = ((double)rand() / RAND_MAX - 0.5) * sqrt((DIMENSIONS*1.0) * h);
+#else
+          double ut = r8_uniform_01 ( &seed );
+
+          double us;
+          double dx = 0;
+          double dy = 0;
+
+          if ( ut < 1.0 / 2.0 )
+          {
+            us = r8_uniform_01 ( &seed ) - 0.5;
+            if ( us < 0.0)
+            {
+              dx = - stepsz;
+            } 
+            else
+            {
+              dx = stepsz;
+            }
+          } 
+          else
+          {
+            dx = 0.0;
+          }
+
+          ut = r8_uniform_01(&seed);
+          if ( ut < 1.0 / 2.0 )
+          {
+            us = r8_uniform_01(&seed) - 0.5;
+            if (us < 0.0)
+            { 
+              dy = - stepsz;
+            }
+            else
+            {
+              dy = stepsz;
+            }
+          }
+          else
+          {
+            dy = 0.0;
+          }
+#endif
+          // potential before moving
+          double vs = potential(a, b, x1, x2);
+
+          // move
+          x1 = x1 + dx;
+          x2 = x2 + dy;
+        
+          // potential after moving
+          double vh = potential(a, b, x1, x2);
+
+          double we = (1.0 - h * vs) * w;           // Euler-ov korak
+          w = w - 0.5 * h * (vh * we + vs * w);     // trapezna aproksimacija
+  
+          chk = pow(x1 / a, 2) + pow(x2 / b, 2);
+        }
+        wt[i][j] += w;
+      }
+      // // srednja vrenost tezine za N pokusaja
+      // wt = wt / (double)(N);
+
+      // // kvadrat razlike tacne i numericki dobijene vrednosti
+      // err += pow(w_exact - wt, 2);
+    }
+  }
+
+  #pragma omp barrier
+
+  #pragma omp for collapse(2) reduction(+:err)
+  for (int i=0; i<=NI; i++)
+  {
+    for (int j=0; j<=NJ; j++)
+    {
+      // srednja vrenost tezine za N pokusaja
+      wt[i][j] = wt[i][j] / (double)(N);
+
+      // kvadrat razlike tacne i numericki dobijene vrednosti
+      err += pow(w_exact[i][j] - wt[i][j], 2);
+    }
+  }
+
+} // parallel
+  // root-mean-square (RMS) error
+  return sqrt(err / (double)(n_inside));
+}
+
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 // solution with for collapse of outer loops and reduction of error
 double feynman_1(const double a, const double b, const double h, const double stepsz, const int N) 
@@ -617,7 +761,7 @@ double feynman_4(const double a, const double b, const double h, const double st
 
 
 
-double (*FUNCS[])(const double, const double, const double, const double, const int) = {feynman_1, feynman_2, feynman_3, feynman_4};
+double (*FUNCS[])(const double, const double, const double, const double, const int) = {feynman_0, feynman_1, feynman_2, feynman_3, feynman_4};
 
 int main ( int argc, char **argv )
 {
