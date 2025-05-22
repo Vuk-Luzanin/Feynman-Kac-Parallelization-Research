@@ -136,7 +136,11 @@ double feynman_pthreads(const double a, const int N) {
 
     // pronalazimo tacke unutar elipsoida
     for (int i = 1; i <= NI; ++i) {
-        double x = ((double)(NI - i) * (-a) + (double)(i - 1) * a) / (double)(NI - 1);
+        // double x = ((double)(NI - i) * (-a) + (double)(i - 1) * a) / (double)(NI - 1);
+
+        int alt_i = (i % 2 == 1) ? (i - 1) / 2 + 1 : NI - (i / 2) + 1;
+        double x = ((double)(NI - alt_i) * (-a) + (double)(alt_i - 1) * a) / (double)(NI - 1);
+
         double r = x / a;
         double chk = r * r;
         w_exact[i] = 0.0;
@@ -145,6 +149,7 @@ double feynman_pthreads(const double a, const int N) {
         if (chk >= 1.0) continue;
 
         w_exact[i] = exp(r * r - 1.0);
+
         inside_points[n_inside].i = i;
         inside_points[n_inside].x = x;
         n_inside++;

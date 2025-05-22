@@ -173,7 +173,7 @@ void* trial_worker(void *varg)
 }
 
 
-double feynman_pthreads_1d(const double a, const double b, const int N) 
+double feynman_pthreads_2d(const double a, const double b, const int N) 
 {
   int n_inside = 0;   // broj tacaka unutar elipsoida (unutar mreze)
 
@@ -260,7 +260,7 @@ int main ( int argc, char **argv )
 
   printf("TEST: N=%d, num_threads=%d\n", N, num_threads);
   double wtime = omp_get_wtime();
-  double err = feynman_pthreads_1d(a, b, N);
+  double err = feynman_pthreads_2d(a, b, N);
   wtime = omp_get_wtime() - wtime;
   printf("%d    %lf    %lf\n", N, err, wtime);
   printf("TEST END\n");
