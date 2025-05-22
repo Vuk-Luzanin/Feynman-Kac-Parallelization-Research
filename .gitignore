@@ -11,6 +11,7 @@ result/
 build/
 *.o
 *.exe
+*.out
 
 # Ignoriši VSCode workspace fajl 
 .vscode/
