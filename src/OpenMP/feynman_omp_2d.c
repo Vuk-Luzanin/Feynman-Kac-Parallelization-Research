@@ -7,8 +7,8 @@
 
 #define NUM_LOCKS   256
 #define DIMENSIONS  2
-#define NI          16
-#define NJ          11
+#define NI          11
+#define NJ          6
 
 static double a = 2.0;
 static double b = 1.0;
