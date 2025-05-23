@@ -127,7 +127,6 @@ int main ( int arc, char **argv )
   double rth;
   int seed = 123456789;
   int steps;
-  int steps_ave;
   int trial;
   double us;
   double ut;
@@ -316,7 +315,6 @@ int main ( int arc, char **argv )
   WT is the average of the sum of the different trials.
 */
         wt = wt / ( double ) ( N ); 
-        steps_ave = steps / ( double ) ( N );
 /*
   Add error in WT to the running L2 error in the solution.
 */

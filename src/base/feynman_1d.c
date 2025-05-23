@@ -117,7 +117,6 @@ int main ( int argc, char **argv )
   double rth;
   int seed = 123456789;
   int steps;
-  int steps_ave;
   double test;
   double us;
   double vh;
@@ -147,7 +146,7 @@ int main ( int argc, char **argv )
   k = 0;
   n_int = 0;
 
-  printf("TEST: 1d arguments [%d] and sequential\n", N);
+  printf("TEST: 1d arguments [%d] and sequential\n", n);
   double wtime = omp_get_wtime();
 
   for ( i = 0; i <= ni + 1; i++ )
@@ -225,7 +224,6 @@ int main ( int argc, char **argv )
    WT is the average of the sum of the different trials.
 */
     wt = wt / ( double ) ( n );
-    steps_ave = steps / n;
 /*
   Add error in WT to the running L2 error in the solution.
 */
