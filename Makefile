@@ -8,12 +8,14 @@
 BUILD_DIR = result
 
 # per-strategy build directories
+SEQUENTIAL_BUILD_DIR = $(BUILD_DIR)/feynman
 OMP_BUILD_DIR = $(BUILD_DIR)/feynman_omp
 PTHREADS_BUILD_DIR = $(BUILD_DIR)/feynman_pthreads
 
 
 # where all source code is located
 SOURCE_DIR = src
+SEQUENTIAL_DIR = $(SOURCE_DIR)/base
 OMP_DIR = $(SOURCE_DIR)/OpenMP
 PTHREADS_DIR = $(SOURCE_DIR)/Pthreads
 
@@ -47,8 +49,20 @@ endif
 # $(@) stands for target -> written before : -> $(BUILD_DIR)/prime
 
 # all is defined as main target when running make
-all: $(OMP_BUILD_DIR)/feynman_omp_1d $(OMP_BUILD_DIR)/feynman_omp_2d $(OMP_BUILD_DIR)/feynman_omp_3d \
+all: $(SEQUENTIAL_BUILD_DIR)/feynman_1d $(SEQUENTIAL_BUILD_DIR)/feynman_2d $(SEQUENTIAL_BUILD_DIR)/feynman_3d \
+	 $(OMP_BUILD_DIR)/feynman_omp_1d $(OMP_BUILD_DIR)/feynman_omp_2d $(OMP_BUILD_DIR)/feynman_omp_3d \
 	 $(PTHREADS_BUILD_DIR)/feynman_pthreads_1d $(PTHREADS_BUILD_DIR)/feynman_pthreads_2d $(PTHREADS_BUILD_DIR)/feynman_pthreads_3d
+
+# sequetial
+$(SEQUENTIAL_BUILD_DIR)/feynman_1d: $(SEQUENTIAL_DIR)/feynman_1d.c | $(SEQUENTIAL_BUILD_DIR)
+	$(OMPCC) $(CC_FLAGS) $(^) -o $(@) $(LIBS)
+
+$(SEQUENTIAL_BUILD_DIR)/feynman_2d: $(SEQUENTIAL_DIR)/feynman_2d.c | $(SEQUENTIAL_BUILD_DIR)
+	$(OMPCC) $(CC_FLAGS) $(^) -o $(@) $(LIBS)
+
+$(SEQUENTIAL_BUILD_DIR)/feynman_3d: $(SEQUENTIAL_DIR)/feynman_3d.c | $(SEQUENTIAL_BUILD_DIR)
+	$(OMPCC) $(CC_FLAGS) $(^) -o $(@) $(LIBS)
+
 
 # OpenMP
 $(OMP_BUILD_DIR)/feynman_omp_1d: $(OMP_DIR)/feynman_omp_1d.c $(SOURCE_DIR)/util.c | $(OMP_BUILD_DIR)
@@ -72,6 +86,9 @@ $(PTHREADS_BUILD_DIR)/feynman_pthreads_3d: $(PTHREADS_DIR)/feynman_pthreads_3d.c
 	$(OMPCC) $(CC_FLAGS) $(^) -o $(@) $(LIBS) -lpthread
 
 # create needed directories
+$(SEQUENTIAL_BUILD_DIR):
+	mkdir -p $@
+
 $(OMP_BUILD_DIR):
 	mkdir -p $@
 

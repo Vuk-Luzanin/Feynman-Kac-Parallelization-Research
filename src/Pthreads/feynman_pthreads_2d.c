@@ -8,8 +8,8 @@
 
 #define NUM_LOCKS   256
 #define DIMENSIONS  2
-#define NI          16
-#define NJ          11
+#define NI          11
+#define NJ          6
 
 int num_threads = 8;
 
