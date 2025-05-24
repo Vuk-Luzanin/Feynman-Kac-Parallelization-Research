@@ -8,7 +8,7 @@
 BUILD_DIR = result
 
 # per-strategy build directories
-SEQUENTIAL_BUILD_DIR = $(BUILD_DIR)/base
+SEQUENTIAL_BUILD_DIR = $(BUILD_DIR)/feynman
 OMP_BUILD_DIR = $(BUILD_DIR)/feynman_omp
 PTHREADS_BUILD_DIR = $(BUILD_DIR)/feynman_pthreads
 

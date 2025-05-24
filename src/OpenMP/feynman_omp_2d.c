@@ -1,7 +1,7 @@
-# include <stdlib.h>
-# include <stdio.h>
-# include <math.h>
-# include <time.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <math.h>
+#include <time.h>
 #include <omp.h>
 #include "util.h"
 
@@ -137,9 +137,9 @@ double feynman_0(const double a, const double b, const double h, const double st
 
   // barijera samo na kraju trial petlje za svaku nit (u for je dodato nowait, kako se niti medjusobno ne bi cekale)
   // po defaultu, na kraju for petlje se sve niti cekaju
-  #pragma omp barrier
+#pragma omp barrier
 
-  #pragma omp for collapse(2) reduction(+:err)
+#pragma omp for collapse(2) reduction(+:err)
   for (int i=0; i<=NI; i++)
   {
     for (int j=0; j<=NJ; j++)
