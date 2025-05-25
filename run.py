@@ -29,7 +29,15 @@ def run_make():
 
 # IMPORTANT: Testove nazivati u formatu feynman_{tehnologija}_{DIMENSION}D
 TESTS = {
-    'feynman_1d': {
+    'feynman_sequential_1d': {
+        'type': 'sequential',
+        'args': [[1000], [5000], [10000], [20000]],
+        'x': lambda result: [int(result[0][0])],
+        'y': lambda result, seq_result: [max(float(seq_result[0][2]), 0.0000001) / max(float(result[0][2]), 0.0000001)],
+        'same': lambda result1, result2: (abs(float(result1[0][1]) - float(result2[0][1])) <= ACCURACY),
+        'threads': [1]
+        },
+    'feynman_sequential_2d': {
         'type': 'sequential',
         'args': [[1000], [5000], [10000], [20000]],
         'x': lambda result: [int(result[0][0])],
@@ -37,15 +45,7 @@ TESTS = {
         'same': lambda result1, result2: (abs(float(result1[0][1]) - float(result2[0][1])) <= ACCURACY),
         'threads': [1]
     },
-    'feynman_2d': {
-        'type': 'sequential',
-        'args': [[1000], [5000], [10000], [20000]],
-        'x': lambda result: [int(result[0][0])],
-        'y': lambda result, seq_result: [max(float(seq_result[0][2]), 0.0000001) / max(float(result[0][2]), 0.0000001)],
-        'same': lambda result1, result2: (abs(float(result1[0][1]) - float(result2[0][1])) <= ACCURACY),
-        'threads': [1]
-    },
-    'feynman_3d': {
+    'feynman_sequential_3d': {
         'type': 'sequential',
         'args': [[1000], [5000], [10000], [20000]],
         'x': lambda result: [int(result[0][0])],
@@ -108,6 +108,26 @@ TESTS = {
 
 WIDTH = 1.0
 
+seq_results = {
+    'feynman_sequential_1d': {
+        'results' : {},              # key (args) : value (results)
+        'x_axis' : {},
+        'x_labels' : {}
+    },            
+    'feynman_sequential_2d': {
+        'results' : {},              # key (args) : value (results)
+        'x_axis' : {},
+        'x_labels' : {}
+    },
+    'feynman_sequential_3d': {
+        'results' : {},              # key (args) : value (results)
+        'x_axis' : {},
+        'x_labels' : {}
+    }
+}
+x_axis = {}
+x_labels = {}
+
 # pokrece test i cuva stdout, i pravi log fajlove
 # Defines a function that runs a test executable based on the test type (OpenMP for now)
 def run_test(func_num: int, test_type: str, exe_name: str, args: List[int], num_threads: int) -> Result:
@@ -153,7 +173,6 @@ def run_test(func_num: int, test_type: str, exe_name: str, args: List[int], num_
 
     # stdout=PIPE means that the standard output of the process (what the program would normally print to the screen)
     # is redirected so it can be read from Python code through process.stdout
-
 
     # Wait for the process to finish, and if it returns a non-zero status or has no output, return an empty list
     if process.wait() != 0 or not process.stdout:
@@ -205,20 +224,6 @@ def run_tests(test_name: str, test_data: Dict[str, Any]):
     # List of thread counts to test
     threads = test_data['threads']
 
-
-    seq_results = {}
-    x_axis = np.array([])
-    x_labels = []
-
-    # run sequential implementation
-    tmp = test_name.split("_")
-    seq_test_name = f"{tmp[0]}_{tmp[2]}"            # feynman_xd
-    seq_test_type = TESTS[seq_test_name]["type"]
-    for args in test_args:
-        seq_results[f"{args}"] = run_test(0, seq_test_type, seq_test_name, args, 1)
-        x_labels = get_x_axis(seq_results[f"{args}"])  # Get x-axis labels from results
-        x_axis = np.arange(len(x_labels)) * WIDTH  # Generate x-axis values based on number of labels
-
     # Iterate over the functions to test (if more than one function to test)
     for func_num in range(num_funcs):
         
@@ -250,20 +255,29 @@ def run_tests(test_name: str, test_data: Dict[str, Any]):
                     print('An error occurred while getting results for ', func_num, args, num_threads, file=stderr)
                     exit(1)
 
+                # get name of sequential test
+                seq_name = test_name.split("_")
+                seq_name[1] = "sequential"
+                seq_name = "_".join(seq_name)
+
+                seq_res = seq_results[seq_name]["results"]
+                x_axis = seq_results[seq_name]["x_axis"]
+                x_labels = seq_results[seq_name]["x_labels"]
+
                 # If results do not match sequential results, print error and exit
-                if not check_same(seq_results[f"{args}"], results):
-                    print('Results mismatch for ', func_num, args, num_threads, seq_results[f"{args}"], results, file=stderr)
+                if not check_same(seq_res[f"{args}"], results):
+                    print('Results mismatch for ', func_num, args, num_threads, seq_res[f"{args}"], results, file=stderr)
                     print('Test FAILED')
                     exit(2)
 
                 # Calculate speedups based on sequential and parallel results
-                speedups = get_y_axis(results, seq_results[f"{args}"])
+                speedups = get_y_axis(results, seq_res[f"{args}"])
                 
                 # Calculate bar width for plotting
                 bar_width = WIDTH / (len(threads) - 1)
                 
                 # Adjust x-axis positions for bars based on thread count
-                x_my = x_axis - (WIDTH / 2) + (threads.index(num_threads) - 1) * bar_width + (bar_width / 2)
+                x_my = x_axis[f"{args}"] - (WIDTH / 2) + (threads.index(num_threads) - 1) * bar_width + (bar_width / 2)
                 
                 # Create a bar plot for the current thread count
                 bar = plt.bar(x_my, speedups, label=f'threads={num_threads}', width=bar_width)
@@ -275,7 +289,7 @@ def run_tests(test_name: str, test_data: Dict[str, Any]):
             plt.title(f'Results for function index {func_num} and arguments {args}')
             plt.xlabel('$N$')
             plt.ylabel('Speedup')
-            plt.xticks(x_axis, x_labels)
+            plt.xticks(x_axis[f"{args}"], x_labels[f"{args}"])
             plt.legend()
 
             short_name = test_name[:-3]
@@ -289,6 +303,54 @@ def run_tests(test_name: str, test_data: Dict[str, Any]):
     # After all tests are run, print that the test has passed
     print('Test PASSED')
 
+seq_results = {
+    'feynman_sequential_1d': {
+        'results' : {},              # key (args) : value (results)
+        'x_axis' : {},
+        'x_labels' : {}
+    },            
+    'feynman_sequential_2d': {
+        'results' : {},              # key (args) : value (results)
+        'x_axis' : {},
+        'x_labels' : {}
+    },
+    'feynman_sequential_3d': {
+        'results' : {},              # key (args) : value (results)
+        'x_axis' : {},
+        'x_labels' : {}
+    }
+}
+# x_axis = {}
+# x_labels = {}
+
+def run_sequential_tests(test_name_in: str):       # feynman_omp_1d
+    # run sequential implementation
+    # get name of sequential test
+    if test_name_in is not None:
+        tmp = test_name_in.split("_")
+        tmp[1] = "sequential"
+        test_name_in = "_".join(tmp)
+
+    for test_name, test_data in TESTS.items():
+        if test_data["type"] == "sequential":
+            if test_name_in is not None and test_name != test_name_in:
+                continue
+            get_x_axis = test_data['x']
+            for args in test_data["args"]:
+
+                # get name of sequential test
+                seq_name = test_name.split("_")
+                seq_name[1] = "sequential"
+                seq_name = "_".join(seq_name)
+
+                results = seq_results[seq_name]["results"]
+                x_axis = seq_results[seq_name]["x_axis"]
+                x_labels = seq_results[seq_name]["x_labels"]
+
+                results[f"{args}"] = run_test(0, test_data["type"], test_name, args, 1)
+                x_labels[f"{args}"] = get_x_axis(results[f"{args}"])  # Get x-axis labels from results [N]-> [1000] | [5000]
+                x_axis[f"{args}"] = np.array([])
+                x_axis[f"{args}"] = np.arange(len(x_labels[f"{args}"])) * WIDTH  # Generate x-axis values based on number of labels         #[0.]
 
 def main():
     if len(sys.argv) > 1:
@@ -296,9 +358,11 @@ def main():
         if test_name not in TESTS:
             print('Invalid test name.')
             exit(3)
+        run_sequential_tests(test_name)
         run_tests(test_name, TESTS[test_name])
     else:
         # runs all tests
+        run_sequential_tests(None)
         for test_name, test_data in TESTS.items():
             run_tests(test_name, test_data)
 
