@@ -125,8 +125,6 @@ seq_results = {
         'x_labels' : {}
     }
 }
-x_axis = {}
-x_labels = {}
 
 # pokrece test i cuva stdout, i pravi log fajlove
 # Defines a function that runs a test executable based on the test type (OpenMP for now)
@@ -286,7 +284,7 @@ def run_tests(test_name: str, test_data: Dict[str, Any]):
                 plt.bar_label(bar, [round(speedup, 1) for speedup in speedups])
             
             # Set the title, labels, and ticks for the plot
-            plt.title(f'Results for function index {func_num} and arguments {args}')
+            plt.title(f'Results for dimension {test_name.split("_")[2][0]} function index {func_num} and arguments {args}')
             plt.xlabel('$N$')
             plt.ylabel('Speedup')
             plt.xticks(x_axis[f"{args}"], x_labels[f"{args}"])
@@ -303,25 +301,6 @@ def run_tests(test_name: str, test_data: Dict[str, Any]):
     # After all tests are run, print that the test has passed
     print('Test PASSED')
 
-seq_results = {
-    'feynman_sequential_1d': {
-        'results' : {},              # key (args) : value (results)
-        'x_axis' : {},
-        'x_labels' : {}
-    },            
-    'feynman_sequential_2d': {
-        'results' : {},              # key (args) : value (results)
-        'x_axis' : {},
-        'x_labels' : {}
-    },
-    'feynman_sequential_3d': {
-        'results' : {},              # key (args) : value (results)
-        'x_axis' : {},
-        'x_labels' : {}
-    }
-}
-# x_axis = {}
-# x_labels = {}
 
 def run_sequential_tests(test_name_in: str):       # feynman_omp_1d
     # run sequential implementation
