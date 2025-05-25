@@ -1,79 +1,78 @@
-# include <math.h>
 # include <stdlib.h>
 # include <stdio.h>
+# include <math.h>
 # include <time.h>
-# include <omp.h>
+#include <omp.h>    // for time measurement
+
 
 int main ( int argc, char **argv );
 int i4_ceiling ( double x );
-int i4_min ( int i1, int i2 );
-double potential ( double a, double b, double c, double x, double y, double z );
+double potential ( double a, double b, double x, double y );
 double r8_uniform_01 ( int *seed );
 
 /******************************************************************************/
 
-int main ( int arc, char **argv )
+int main ( int argc, char **argv )
 
 /******************************************************************************/
 /*
   Purpose:
 
-    MAIN is the main program for FEYNMAN_KAC_3D.
+    MAIN is the main program for FEYNMAN_KAC_2D.
 
   Discussion:
 
     This program is derived from section 2.5, exercise 2.2 of Petersen and Arbenz.
 
-    The problem is to determine the solution U(X,Y,Z) of the following 
+    The problem is to determine the solution U(X,Y) of the following 
     partial differential equation:
 
-      (1/2) Laplacian U - V(X,Y,Z) * U = 0,
+      (1/2) Laplacian U - V(X,Y) * U = 0,
 
     inside the elliptic domain D:
  
-      D = { (X,Y,Z) | (X/A)^2+(Y/B)^2+(Z/C)^2 <= 1 }
+      D = { (X,Y) | (X/A)^2+(Y/B)^2 <= 1 }
    
     with the boundary condition U(boundary(D)) = 1.
 
-    The V(X,Y,Z) is the potential function:
+    The V(X,Y) is the potential function:
 
-      V = 2 * ( (X/A^2)^2 + (Y/B^2)^2 + (Z/C^2)^2 ) + 1/A^2 + 1/B^2 + 1/C^2.
+      V = 2 * ( (X/A^2)^2 + (Y/B^2)^2 ) + 1/A^2 + 1/B^2.
 
     The analytic solution of this problem is already known:
 
-      U(X,Y,Z) = exp ( (X/A)^2 + (Y/B)^2 + (Z/C)^2 - 1 ).
+      U(X,Y) = exp ( (X/A)^2 + (Y/B)^2 - 1 ).
 
     Our method is via the Feynman-Kac Formula.
 
-    The idea is to start from any (x,y,z) in D, and
-    compute (x+Wx(t),y+Wy(t),z+Wz(t)) where 3-D Brownian motion
-    (Wx,Wy,Wz) is updated each step by sqrt(h)*(z1,z2,z3),
-    each z1,z2,z3 are independent approximately Gaussian 
+    The idea is to start from any (x,y) in D, and
+    compute (x+Wx(t),y+Wy(t)) where 2D Brownian motion
+    (Wx,Wy) is updated each step by sqrt(h)*(z1,z2),
+    each z1,z2 are independent approximately Gaussian 
     random variables with zero mean and variance 1. 
 
-    Each (x1(t),x2(t),x3(t)) is advanced until (x1,x2,x3) exits 
+    Each (x1(t),x2(t)) is advanced until (x1,x2) exits 
     the domain D.  
 
-    Upon its first exit from D, the sample path (x1,x2,x3) is stopped and a 
-    new sample path at (x,y,z) is started until N such paths are completed.
+    Upon its first exit from D, the sample path (x1,x2) is stopped and a 
+    new sample path at (x,y) is started until N such paths are completed.
  
     The Feynman-Kac formula gives the solution here as
 
-      U(X,Y,Z) = (1/N) sum(1 <= I <= N) Y(tau_i),
+      U(X,Y) = (1/N) sum(1 <= I <= N) Y(tau_i),
 
     where
 
-      Y(tau) = exp( -int(s=0..tau) v(x1(s),x2(s),x3(s)) ds),
+      Y(tau) = exp( -int(s=0..tau) v(x1(s),x2(s)) ds),
 
-    and tau = first exit time for path (x1,x2,x3). 
+    and tau = first exit time for path (x1,x2). 
 
     The integration procedure is a second order weak accurate method:
 
       X(t+h)  = [ x1(t) + sqrt ( h ) * z1 ]
                 [ x2(t) + sqrt ( h ) * z2 ]
-                [ x3(t) + sqrt ( h ) * z3 ]
 
-    Here Z1, Z2, and Z3 are approximately normal univariate Gaussians. 
+    Here Z1, Z2 are approximately normal univariate Gaussians. 
 
     An Euler predictor approximates Y at the end of the step
 
@@ -89,12 +88,12 @@ int main ( int arc, char **argv )
 
   Modified:
 
-    29 May 2012
+    31 May 2012
 
   Author:
 
-    Original C version by Wesley Petersen.
-    C++ version by John Burkardt.
+    Original C 3D version by Wesley Petersen.
+    C 2D version by John Burkardt.
 
   Reference:
 
@@ -106,28 +105,29 @@ int main ( int arc, char **argv )
     LC: QA76.59.P47.
 */
 {
-  double a = 3.0;
-  double b = 2.0;
-  double c = 1.0;
+  if (argc < 2)
+  {
+    printf("Invalid number of arguments passed.\n");
+    return 1;
+  }
+  double a = 2.0;
+  double b = 1.0;
   double chk;
-  int dim = 3;
+  int dim = 2;
   double dx;
   double dy;
-  double dz;
   double err;
   double h = 0.001;
   int i;
   int j;
   int k;
-  int N = 1000;
+  int N = atoi(argv[1]);
   int n_inside;
   int ni;
   int nj;
-  int nk;
   double rth;
   int seed = 123456789;
   int steps;
-  int trial;
   double us;
   double ut;
   double vh;
@@ -135,13 +135,12 @@ int main ( int arc, char **argv )
   double x;
   double x1;
   double x2;
-  double x3;
   double y;
   double w;
   double w_exact;
   double we;
   double wt;
-  double z;
+
 
 /*
   RTH is the scaled stepsize.
@@ -150,176 +149,137 @@ int main ( int arc, char **argv )
 /*
   Choose the spacing.
 */
-  if ( a == i4_min ( i4_min ( a, b ), c ) )
+  if ( a < b )
   {
     ni = 6;
     nj = 1 + i4_ceiling ( b / a ) * ( ni - 1 );
-    nk = 1 + i4_ceiling ( c / a ) * ( ni - 1 );
-  }
-  else if ( b == i4_min ( i4_min ( a, b ), c ) )
-  {
-    nj = 6;
-    ni = 1 + i4_ceiling ( a / b ) * ( nj - 1 );
-    nk = 1 + i4_ceiling ( c / b ) * ( nj - 1 );
   }
   else
   {
-    nk = 6;
-    ni = 1 + i4_ceiling ( a / c ) * ( nk - 1 );
-    nj = 1 + i4_ceiling ( b / c ) * ( nk - 1 );
+    nj = 6;
+    ni = 1 + i4_ceiling ( a / b ) * ( nj - 1 );
   }
 
 /*
-  Loop over grid points.
+  Loop over the grid points.
 */
   err = 0.0;
   n_inside = 0;
 
-  printf("TEST: 3d arguments [%d] and sequential\n", N);
+  printf("TEST: 2d arguments [%d] and sequential\n", N);
   double wtime = omp_get_wtime();
 
-  for ( i = 1; i <= ni; i++ )
+  for ( j = 1; j <= nj; j++ )
   {
-    x = ( ( double ) ( ni - i     ) * ( - a )
-        + ( double ) (      i - 1 ) *     a )
-        / ( double ) ( ni     - 1 );
+    x = ( ( double ) ( nj - j     ) * ( - a )
+        + ( double ) (      j - 1 ) *     a )
+        / ( double ) ( nj     - 1 );
 
-    for ( j = 1; j <= nj; j++ )
+    for ( i = 1; i <= ni; i++ )
     {
-      y = ( ( double ) ( nj - j     ) * ( - b )
-          + ( double ) (      j - 1 ) *     b ) 
-          / ( double ) ( nj     - 1 );
+      y = ( ( double ) ( ni - i     ) * ( - b )
+          + ( double ) (      i - 1 ) *     b ) 
+          / ( double ) ( ni     - 1 );
 
-      for ( k = 1; k <= nk; k++ )
+      chk = pow ( x / a, 2 ) + pow ( y / b, 2 );
+
+      if ( 1.0 < chk )
       {
-        z = ( ( double ) ( nk - k     ) * ( - c )
-            + ( double ) (      k - 1 ) *     c ) 
-            / ( double ) ( nk     - 1 );
-
-        chk = pow ( x / a, 2 ) + pow ( y / b, 2 ) + pow ( z / c, 2 );
-
-        if ( 1.0 < chk )
-        {
-          continue;
-        }
-
-        n_inside = n_inside + 1;
+        continue;
+      }
+      n_inside = n_inside + 1;
 /*
-  Compute the exact solution at this point (x,y,z).
+  Compute the exact solution at this point (x,y).
 */
-        w_exact = exp ( pow ( x / a, 2 )
-                      + pow ( y / b, 2 )
-                      + pow ( z / c, 2 ) - 1.0 );
+      w_exact = exp ( pow ( x / a, 2 )
+                    + pow ( y / b, 2 ) - 1.0 );
 /*
   Now try to estimate the solution at this point.
 */
-        wt = 0.0;
-        steps = 0;
+      wt = 0.0;
+      steps = 0;
 /* 
   Do N paths 
 */
-        for ( trial = 0; trial < N; trial++ )
-        {
-          x1  = x;
-          x2  = y;
-          x3  = z;
+      for ( k = 0; k < N; k++ )
+      {
+        x1  = x;
+        x2  = y;
 /* 
   W = exp(-int(s=0..t) v(X)ds) 
 */
-          w = 1.0;  
+        w = 1.0;  
 /*
-  CHK is < 1.0 while the point is inside the ellipsoid.
+  CHK is < 1.0 while the point is inside.
 */
-          chk = 0.0;
-          while ( chk < 1.0 )
+        chk = 0.0;
+        while ( chk < 1.0 )
+        {
+/*
+  Determine DX, DY.
+*/
+          ut = r8_uniform_01 ( &seed );
+          if ( ut < 1.0 / 2.0 )
           {
-/*
-  Determine DX, DY, DZ.
-*/
-            ut = r8_uniform_01 ( &seed );
-            if ( ut < 1.0 / 3.0 )
+            us = r8_uniform_01 ( &seed ) - 0.5;
+            if ( us < 0.0)
             {
-              us = r8_uniform_01 ( &seed ) - 0.5;
-              if ( us < 0.0)
-              {
-                dx = - rth;
-              } 
-              else
-              {
-                dx = rth;
-              }
+              dx = - rth;
             } 
             else
             {
-              dx = 0.0;
+              dx = rth;
             }
+          } 
+          else
+          {
+            dx = 0.0;
+          }
 
-            ut = r8_uniform_01 ( &seed );
-            if ( ut < 1.0 / 3.0 )
-            {
-              us = r8_uniform_01 ( &seed ) - 0.5;
-              if ( us < 0.0 )
-              { 
-                dy = - rth;
-              }
-              else
-              {
-                dy = rth;
-              }
+          ut = r8_uniform_01 ( &seed );
+          if ( ut < 1.0 / 2.0 )
+          {
+            us = r8_uniform_01 ( &seed ) - 0.5;
+            if ( us < 0.0 )
+            { 
+              dy = - rth;
             }
             else
             {
-              dy = 0.0;
+              dy = rth;
             }
-
-            ut = r8_uniform_01 ( &seed );
-            if ( ut < 1.0 / 3.0 )
-            {
-              us = r8_uniform_01 ( &seed ) - 0.5;
-              if ( us < 0.0 )
-              {
-                dz = - rth;
-              }
-              else
-              {
-                dz = rth;
-              }
-            } 
-            else
-            {
-              dz = 0.0;
-            }
-
-            vs = potential ( a, b, c, x1, x2, x3 );
+          }
+          else
+          {
+            dy = 0.0;
+          }
+          vs = potential ( a, b, x1, x2 );
 /*
   Move to the new point.
 */
-            x1 = x1 + dx;
-            x2 = x2 + dy;
-            x3 = x3 + dz;
+          x1 = x1 + dx;
+          x2 = x2 + dy;
 
-            steps = steps + 1;
+          steps = steps + 1;
+ 
+          vh = potential ( a, b, x1, x2 );
 
-            vh = potential ( a, b, c, x1, x2, x3 );
+          we = ( 1.0 - h * vs ) * w;
+          w = w - 0.5 * h * ( vh * we + vs * w ); 
 
-            we = ( 1.0 - h * vs ) * w;
-            w = w - 0.5 * h * ( vh * we + vs * w ); 
-
-            chk = pow ( x1 / a, 2 ) 
-                + pow ( x2 / b, 2 )
-                + pow ( x3 / c, 2 );
-          }
-          wt = wt + w;
+          chk = pow ( x1 / a, 2 ) 
+              + pow ( x2 / b, 2 );
         }
+        wt = wt + w;
+      }
 /*
   WT is the average of the sum of the different trials.
 */
-        wt = wt / ( double ) ( N ); 
+      wt = wt / ( double ) ( N ); 
 /*
   Add error in WT to the running L2 error in the solution.
 */
-        err = err + pow ( w_exact - wt, 2 );
-      }
+      err = err + pow ( w_exact - wt, 2 );
     }
   }
 /*
@@ -396,48 +356,7 @@ int i4_ceiling ( double x )
 }
 /******************************************************************************/
 
-int i4_min ( int i1, int i2 )
-
-/******************************************************************************/
-/*
-  Purpose:
-
-    I4_MIN returns the smaller of two I4's.
-
-  Licensing:
-
-    This code is distributed under the MIT license.
-
-  Modified:
-
-    29 August 2006
-
-  Author:
-
-    John Burkardt
-
-  Parameters:
-
-    Input, int I1, I2, two integers to be compared.
-
-    Output, int I4_MIN, the smaller of I1 and I2.
-*/
-{
-  int value;
-
-  if ( i1 < i2 )
-  {
-    value = i1;
-  }
-  else
-  {
-    value = i2;
-  }
-  return value;
-}
-/******************************************************************************/
-
-double potential ( double a, double b, double c, double x, double y, double z )
+double potential ( double a, double b, double x, double y )
 
 /******************************************************************************/
 /*
@@ -459,21 +378,19 @@ double potential ( double a, double b, double c, double x, double y, double z )
 
   Parameters:
 
-    Input, double A, B, C, the parameters that define the ellipse.
+    Input, double A, B, the parameters that define the ellipse.
 
-    Input, double X, Y, Z, the coordinates of the point.
+    Input, double X, Y, the coordinates of the point.
 
-    Output, double POTENTIAL, the value of the potential function at (X,Y,Z).
+    Output, double POTENTIAL, the value of the potential function at (X,Y).
 */
 {
   double value;
 
   value = 2.0 * ( pow ( x / a / a, 2 )
-                + pow ( y / b / b, 2 )
-                + pow ( z / c / c, 2 ) )
+                + pow ( y / b / b, 2 ) )
               + 1.0 / a / a
-              + 1.0 / b / b 
-              + 1.0 / c / c;
+              + 1.0 / b / b;
 
   return value;
 }
@@ -571,3 +488,4 @@ double r8_uniform_01 ( int *seed )
   return r;
 }
 /******************************************************************************/
+

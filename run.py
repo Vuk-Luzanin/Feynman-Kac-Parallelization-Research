@@ -29,6 +29,30 @@ def run_make():
 
 # IMPORTANT: Testove nazivati u formatu feynman_{tehnologija}_{DIMENSION}D
 TESTS = {
+    'feynman_sequential_1d': {
+        'type': 'sequential',
+        'args': [[1000], [5000], [10000], [20000]],
+        'x': lambda result: [int(result[0][0])],
+        'y': lambda result, seq_result: [max(float(seq_result[0][2]), 0.0000001) / max(float(result[0][2]), 0.0000001)],
+        'same': lambda result1, result2: (abs(float(result1[0][1]) - float(result2[0][1])) <= ACCURACY),
+        'threads': [1]
+        },
+    'feynman_sequential_2d': {
+        'type': 'sequential',
+        'args': [[1000], [5000], [10000], [20000]],
+        'x': lambda result: [int(result[0][0])],
+        'y': lambda result, seq_result: [max(float(seq_result[0][2]), 0.0000001) / max(float(result[0][2]), 0.0000001)],
+        'same': lambda result1, result2: (abs(float(result1[0][1]) - float(result2[0][1])) <= ACCURACY),
+        'threads': [1]
+    },
+    'feynman_sequential_3d': {
+        'type': 'sequential',
+        'args': [[1000], [5000], [10000], [20000]],
+        'x': lambda result: [int(result[0][0])],
+        'y': lambda result, seq_result: [max(float(seq_result[0][2]), 0.0000001) / max(float(result[0][2]), 0.0000001)],
+        'same': lambda result1, result2: (abs(float(result1[0][1]) - float(result2[0][1])) <= ACCURACY),
+        'threads': [1]
+    },
     'feynman_omp_1d': {
         'type': 'omp',
         'args': [[1000], [5000], [10000], [20000]],
@@ -84,6 +108,25 @@ TESTS = {
 
 WIDTH = 1.0
 
+seq_results = {
+    'feynman_sequential_1d': {
+        'results' : {},              # key (args) : value (results)
+        'x_axis' : {},
+        'x_labels' : {}
+    },            
+    'feynman_sequential_2d': {
+        'results' : {},              # key (args) : value (results)
+        'x_axis' : {},
+        'x_labels' : {}
+    },
+    'feynman_sequential_3d': {
+        'results' : {},              # key (args) : value (results)
+        'x_axis' : {},
+        'x_labels' : {}
+    }
+}
+
+# pokrece test i cuva stdout, i pravi log fajlove
 # Defines a function that runs a test executable based on the test type (OpenMP for now)
 def run_test(func_num: int, test_type: str, exe_name: str, args: List[int], num_threads: int) -> Result:
     # Make a copy of the current environment so we can modify it locally for this specific test (OMP_NUM_THREADS variable)
@@ -96,7 +139,12 @@ def run_test(func_num: int, test_type: str, exe_name: str, args: List[int], num_
     exe_path = join(BUILD_DIR, subdir, exe_name)
 
     # If the test type is OpenMP
-    if test_type == 'omp':
+    if test_type == 'sequential':
+        # Prepare the base arguments for executing the program (path to executable + function number)
+        process_args = [exe_path]
+        # Build the log file name based on the command arguments
+        log_filename = ' '.join(process_args + stringified_args + [str(num_threads)])
+    elif test_type == 'omp':
         # Set the number of OpenMP threads in the environment for this process
         process_env['OMP_NUM_THREADS'] = str(num_threads)
         # Prepare the base arguments for executing the program (path to executable + function number)
@@ -122,8 +170,7 @@ def run_test(func_num: int, test_type: str, exe_name: str, args: List[int], num_
     process = Popen(process_args, env=process_env, stdout=PIPE) # env=process_env -> Environment variables that will apply only to this specific process.
 
     # stdout=PIPE means that the standard output of the process (what the program would normally print to the screen)
-    #  is redirected so it can be read from Python code through process.stdout
-
+    # is redirected so it can be read from Python code through process.stdout
 
     # Wait for the process to finish, and if it returns a non-zero status or has no output, return an empty list
     if process.wait() != 0 or not process.stdout:
@@ -155,9 +202,6 @@ def run_test(func_num: int, test_type: str, exe_name: str, args: List[int], num_
 def run_tests(test_name: str, test_data: Dict[str, Any]):
     # Print the name of the test being run
     print('Running', test_name, 'tests')
-    
-    # Get the test data corresponding to the test_name from the TESTS dictionary
-    test_data = TESTS[test_name]
 
     # Number of functions to test (default to 1 if 'funcs' not specified)
     num_funcs = test_data['funcs'] if 'funcs' in test_data else 1
@@ -182,68 +226,75 @@ def run_tests(test_name: str, test_data: Dict[str, Any]):
     for func_num in range(num_funcs):
         
         # Iterate over the argument sets for the function
-        for arg_idx, args in enumerate(test_args):
+        for args in test_args:
             
-            # Initialize variables to store results and x-axis data
-            seq_results = []
-            x_axis = np.array([])
-            x_labels = []
-            
-            # Set up the plot figure size
+            # Set up the plot figure size - sirina 15 i visina 6 inca
             plt.figure(figsize=(15, 6))
             
             # Iterate over the number of threads for the test
             for num_threads in threads:
+                if num_threads == threads[0]:
+                    continue
+
                 print('Running test with function', func_num, 'arguments', args, 'and', num_threads, 'threads')
 
                 # If running with the first number of threads, get sequential results
-                if num_threads == threads[0]:
-                    seq_results = run_test(func_num, test_type, test_name, args, num_threads)
-                    x_labels = get_x_axis(seq_results)  # Get x-axis labels from results
-                    x_axis = np.arange(len(x_labels)) * WIDTH  # Generate x-axis values based on number of labels
+                # if num_threads == threads[0]:
+                #     # run same implementation with 1 thread (and take it as a reference)
+                #     seq_results = run_test(func_num, test_type, test_name, args, num_threads)
+                #     x_labels = get_x_axis(seq_results)  # Get x-axis labels from results
+                #     x_axis = np.arange(len(x_labels)) * WIDTH  # Generate x-axis values based on number of labels
                 
-                else:
-                    # Run the test with the current number of threads
-                    results = run_test(func_num, test_type, test_name, args, num_threads)
-                    
-                    # If results are empty, print error and exit
-                    if len(results) == 0:
-                        print('An error occurred while getting results for ', func_num, args, num_threads, file=stderr)
-                        exit(1)
+                # Run the test with the current number of threads
+                results = run_test(func_num, test_type, test_name, args, num_threads)
+                
+                # If results are empty, print error and exit
+                if len(results) == 0:
+                    print('An error occurred while getting results for ', func_num, args, num_threads, file=stderr)
+                    exit(1)
 
-                    # If results do not match sequential results, print error and exit
-                    if not check_same(seq_results, results):
-                        print('Results mismatch for ', func_num, args, num_threads, seq_results, results, file=stderr)
-                        print('Test FAILED')
-                        exit(2)
-                    
-                    # Calculate speedups based on sequential and parallel results
-                    speedups = get_y_axis(results, seq_results)
-                    
-                    # Calculate bar width for plotting
-                    bar_width = WIDTH / (len(threads) - 1)
-                    
-                    # Adjust x-axis positions for bars based on thread count
-                    x_my = x_axis - (WIDTH / 2) + (threads.index(num_threads) - 1) * bar_width + (bar_width / 2)
-                    
-                    # Create a bar plot for the current thread count
-                    bar = plt.bar(x_my, speedups, label=f'threads={num_threads}', width=bar_width)
-                    
-                    # Label the bars with speedup values
-                    plt.bar_label(bar, [round(speedup, 1) for speedup in speedups])
+                # get name of sequential test
+                seq_name = test_name.split("_")
+                seq_name[1] = "sequential"
+                seq_name = "_".join(seq_name)
+
+                seq_res = seq_results[seq_name]["results"]
+                x_axis = seq_results[seq_name]["x_axis"]
+                x_labels = seq_results[seq_name]["x_labels"]
+
+                # If results do not match sequential results, print error and exit
+                if not check_same(seq_res[f"{args}"], results):
+                    print('Results mismatch for ', func_num, args, num_threads, seq_res[f"{args}"], results, file=stderr)
+                    print('Test FAILED')
+                    exit(2)
+
+                # Calculate speedups based on sequential and parallel results
+                speedups = get_y_axis(results, seq_res[f"{args}"])
+                
+                # Calculate bar width for plotting
+                bar_width = WIDTH / (len(threads) - 1)
+                
+                # Adjust x-axis positions for bars based on thread count
+                x_my = x_axis[f"{args}"] - (WIDTH / 2) + (threads.index(num_threads) - 1) * bar_width + (bar_width / 2)
+                
+                # Create a bar plot for the current thread count
+                bar = plt.bar(x_my, speedups, label=f'threads={num_threads}', width=bar_width)
+                
+                # Label the bars with speedup values
+                plt.bar_label(bar, [round(speedup, 1) for speedup in speedups])
             
             # Set the title, labels, and ticks for the plot
-            plt.title(f'Results for function index {func_num} and arguments {args}')
+            plt.title(f'Results for dimension {test_name.split("_")[2][0]} function index {func_num} and arguments {args}')
             plt.xlabel('$N$')
             plt.ylabel('Speedup')
-            plt.xticks(x_axis, x_labels)
+            plt.xticks(x_axis[f"{args}"], x_labels[f"{args}"])
             plt.legend()
 
             short_name = test_name[:-3]
             svg_dir = join(BUILD_DIR, short_name)
 
             # Save the plot as an SVG file
-            svg_filename = f'results-{test_name}-{func_num}-{arg_idx}.svg'
+            svg_filename = f'results-{test_name}-{func_num}-{args}.svg'
             plt.savefig(join(svg_dir, svg_filename))
             plt.close()
     
@@ -251,15 +302,46 @@ def run_tests(test_name: str, test_data: Dict[str, Any]):
     print('Test PASSED')
 
 
+def run_sequential_tests(test_name_in: str):       # feynman_omp_1d
+    # run sequential implementation
+    # get name of sequential test
+    if test_name_in is not None:
+        tmp = test_name_in.split("_")
+        tmp[1] = "sequential"
+        test_name_in = "_".join(tmp)
+
+    for test_name, test_data in TESTS.items():
+        if test_data["type"] == "sequential":
+            if test_name_in is not None and test_name != test_name_in:
+                continue
+            get_x_axis = test_data['x']
+            for args in test_data["args"]:
+
+                # get name of sequential test
+                seq_name = test_name.split("_")
+                seq_name[1] = "sequential"
+                seq_name = "_".join(seq_name)
+
+                results = seq_results[seq_name]["results"]
+                x_axis = seq_results[seq_name]["x_axis"]
+                x_labels = seq_results[seq_name]["x_labels"]
+
+                results[f"{args}"] = run_test(0, test_data["type"], test_name, args, 1)
+                x_labels[f"{args}"] = get_x_axis(results[f"{args}"])  # Get x-axis labels from results [N]-> [1000] | [5000]
+                x_axis[f"{args}"] = np.array([])
+                x_axis[f"{args}"] = np.arange(len(x_labels[f"{args}"])) * WIDTH  # Generate x-axis values based on number of labels         #[0.]
+
 def main():
     if len(sys.argv) > 1:
         test_name = sys.argv[1]
         if test_name not in TESTS:
             print('Invalid test name.')
             exit(3)
+        run_sequential_tests(test_name)
         run_tests(test_name, TESTS[test_name])
     else:
         # runs all tests
+        run_sequential_tests(None)
         for test_name, test_data in TESTS.items():
             run_tests(test_name, test_data)
 
@@ -269,14 +351,3 @@ if __name__ == "__main__":
     main()
 
 
-"""
-
-(name, function number (0-worksharing, 1-tasks), number_of_points)
-./gen/feyman 0 1000
-./gen/feyman 0 5000
-./gen/feyman 0 10000
-./gen/feyman 0 20000
- 
-time ./md 
-
-"""

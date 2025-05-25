@@ -8,7 +8,7 @@
 BUILD_DIR = result
 
 # per-strategy build directories
-SEQUENTIAL_BUILD_DIR = $(BUILD_DIR)/feynman
+SEQUENTIAL_BUILD_DIR = $(BUILD_DIR)/feynman_sequential
 OMP_BUILD_DIR = $(BUILD_DIR)/feynman_omp
 PTHREADS_BUILD_DIR = $(BUILD_DIR)/feynman_pthreads
 
@@ -49,18 +49,18 @@ endif
 # $(@) stands for target -> written before : -> $(BUILD_DIR)/prime
 
 # all is defined as main target when running make
-all: $(SEQUENTIAL_BUILD_DIR)/feynman_1d $(SEQUENTIAL_BUILD_DIR)/feynman_2d $(SEQUENTIAL_BUILD_DIR)/feynman_3d \
+all: $(SEQUENTIAL_BUILD_DIR)/feynman_sequential_1d $(SEQUENTIAL_BUILD_DIR)/feynman_sequential_2d $(SEQUENTIAL_BUILD_DIR)/feynman_sequential_3d \
 	 $(OMP_BUILD_DIR)/feynman_omp_1d $(OMP_BUILD_DIR)/feynman_omp_2d $(OMP_BUILD_DIR)/feynman_omp_3d \
 	 $(PTHREADS_BUILD_DIR)/feynman_pthreads_1d $(PTHREADS_BUILD_DIR)/feynman_pthreads_2d $(PTHREADS_BUILD_DIR)/feynman_pthreads_3d
 
 # sequetial
-$(SEQUENTIAL_BUILD_DIR)/feynman_1d: $(SEQUENTIAL_DIR)/feynman_1d.c | $(SEQUENTIAL_BUILD_DIR)
+$(SEQUENTIAL_BUILD_DIR)/feynman_sequential_1d: $(SEQUENTIAL_DIR)/feynman_sequential_1d.c | $(SEQUENTIAL_BUILD_DIR)
 	$(OMPCC) $(CC_FLAGS) $(^) -o $(@) $(LIBS)
 
-$(SEQUENTIAL_BUILD_DIR)/feynman_2d: $(SEQUENTIAL_DIR)/feynman_2d.c | $(SEQUENTIAL_BUILD_DIR)
+$(SEQUENTIAL_BUILD_DIR)/feynman_sequential_2d: $(SEQUENTIAL_DIR)/feynman_sequential_2d.c | $(SEQUENTIAL_BUILD_DIR)
 	$(OMPCC) $(CC_FLAGS) $(^) -o $(@) $(LIBS)
 
-$(SEQUENTIAL_BUILD_DIR)/feynman_3d: $(SEQUENTIAL_DIR)/feynman_3d.c | $(SEQUENTIAL_BUILD_DIR)
+$(SEQUENTIAL_BUILD_DIR)/feynman_sequential_3d: $(SEQUENTIAL_DIR)/feynman_sequential_3d.c | $(SEQUENTIAL_BUILD_DIR)
 	$(OMPCC) $(CC_FLAGS) $(^) -o $(@) $(LIBS)
 
 
