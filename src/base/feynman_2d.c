@@ -12,7 +12,7 @@ double r8_uniform_01 ( int *seed );
 
 /******************************************************************************/
 
-int main ( int arc, char **argv )
+int main ( int argc, char **argv )
 
 /******************************************************************************/
 /*
@@ -105,6 +105,11 @@ int main ( int arc, char **argv )
     LC: QA76.59.P47.
 */
 {
+  if (argc < 2)
+  {
+    printf("Invalid number of arguments passed.\n");
+    return 1;
+  }
   double a = 2.0;
   double b = 1.0;
   double chk;
@@ -116,7 +121,7 @@ int main ( int arc, char **argv )
   int i;
   int j;
   int k;
-  int N = 1000;
+  int N = atoi(argv[1]);
   int n_inside;
   int ni;
   int nj;
