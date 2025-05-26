@@ -44,6 +44,114 @@ inline double r8_uniform_01(int *seed)
   return r;
 }
 
+typedef struct
+{
+  int first;
+  int second;
+} int_pair;
+
+// solution with spiral matrix traversal
+double feynman_6(const double a, const double b, const double h, const double stepsz, const int N) 
+{
+  static int seed = 123456789;   
+  double err = 0.0;
+  int n_inside = 0;   // broj tacaka unutar elipsoida (unutar mreze)
+
+  int_pair directions[] = {{0, 1}, {1, 0}, {0, -1}, {-1, 0}};;
+  int steps[] = {NJ + 1, NI};
+
+  int i = 1, j = 0, d = 0;
+
+#pragma omp parallel default(none) \
+                     shared(a, b, h, stepsz, N, directions) \
+                     reduction(err, n_inside) \
+                     private(steps, i, j, d) \
+                     firstprivate(seed)
+{
+  seed += omp_get_thread_num();
+  while (steps[d % 2]) {
+    int it = i, jt = j;
+
+    #pragma omp for nowait
+    for (int i = 0; i < steps[d % 2]; i++) {
+      it += directions[d].first;
+      jt += directions[d].second;
+
+      double x = ((double)(NI - it) * (-a) + (double)(it - 1) * a) / (double)(NI - 1);
+      double y = ((double)(NJ - jt) * (-b) + (double)(jt - 1) * b) / (double)(NJ - 1);
+      // obrada
+
+      double chk = pow(x / a, 2) + pow(y / b, 2);
+
+      if ( 1.0 < chk )
+      {
+        // tacka nije unutar 2-D elipsoida
+        continue;
+      }
+
+      n_inside++;
+      double w_exact = exp ( pow ( x / a, 2 )
+                      + pow ( y / b, 2 ) - 1.0 );
+      double wt = 0;
+
+      for (int trial = 0; trial < N; trial++)
+      {
+        double x1 = x;
+        double x2 = y;
+  
+        double w = 1.0;
+        chk = 0.0;
+
+        // kretanje cestice - dok se nalazi unutar elipsoida
+        while (chk < 1.0)
+        {
+#ifdef SMALL_STEP
+          double dx = ((double)rand() / RAND_MAX - 0.5) * sqrt((DIMENSIONS*1.0) * h);
+          double dy = ((double)rand() / RAND_MAX - 0.5) * sqrt((DIMENSIONS*1.0) * h);
+#else
+          double ut = r8_uniform_01 ( &seed );
+
+          double dx = 0;
+          double dy = 0;
+
+          ut = r8_uniform_01(&seed);
+          dx = (ut < 0.5) ? ((r8_uniform_01(&seed) - 0.5) < 0.0 ? -stepsz : stepsz) : 0.0;
+
+          ut = r8_uniform_01(&seed);
+          dy = (ut < 0.5) ? ((r8_uniform_01(&seed) - 0.5) < 0.0 ? -stepsz : stepsz) : 0.0;
+#endif
+          // potential before moving
+          double vs = potential(a, b, x1, x2);
+
+          // move
+          x1 = x1 + dx;
+          x2 = x2 + dy;
+        
+          // potential after moving
+          double vh = potential(a, b, x1, x2);
+
+          double we = (1.0 - h * vs) * w;           // Euler-ov korak
+          w = w - 0.5 * h * (vh * we + vs * w);     // trapezna aproksimacija
+  
+          chk = pow(x1 / a, 2) + pow(x2 / b, 2);
+        }
+        wt += w;
+      }
+
+      wt = wt / ( double ) ( N ); 
+      err = err + pow ( w_exact - wt, 2 );
+    }
+
+    i += steps[d % 2] * (directions[d].first);
+    j += steps[d % 2] * (directions[d].second);
+
+    steps[d % 2]--;
+    d = (d + 1) % 4;
+
+    }
+} // parallel region
+  return err = sqrt ( err / ( double ) ( n_inside ) );
+}
 
 
 
@@ -677,7 +785,7 @@ double feynman_5(const double a, const double b, const double h, const double st
 
 
 
-double (*FUNCS[])(const double, const double, const double, const double, const int) = {feynman_0, feynman_1, feynman_2, feynman_3, feynman_4, feynman_5};
+double (*FUNCS[])(const double, const double, const double, const double, const int) = {feynman_6, feynman_0, feynman_1, feynman_2, feynman_3, feynman_4, feynman_5};
 
 int main ( int argc, char **argv )
 {
