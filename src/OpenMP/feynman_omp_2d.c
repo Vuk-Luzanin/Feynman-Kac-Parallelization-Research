@@ -64,9 +64,8 @@ double feynman_6(const double a, const double b, const double h, const double st
 
 #pragma omp parallel default(none) \
                      shared(a, b, h, stepsz, N, directions) \
-                     reduction(err, n_inside) \
-                     private(steps, i, j, d) \
-                     firstprivate(seed)
+                     reduction(+:err, n_inside) \
+                     firstprivate(seed, steps, i, j, d)
 {
   seed += omp_get_thread_num();
   while (steps[d % 2]) {
