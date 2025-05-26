@@ -10,8 +10,9 @@
 #define NI          11
 #define NJ          6
 
+
 static double a = 2.0;
-static double b = 1.0;
+static double b = 30.0;
 static double h = 0.001;
 
 static double stepsz;
@@ -72,9 +73,10 @@ double feynman_6(const double a, const double b, const double h, const double st
     int it = i, jt = j;
 
     #pragma omp for nowait
-    for (int i = 0; i < steps[d % 2]; i++) {
-      it += directions[d].first;
-      jt += directions[d].second;
+    for (int s = 0; s < steps[d % 2]; s++) 
+    {
+      it = i + (s + 1) * directions[d].first;
+      jt = j + (s + 1) * directions[d].second;
 
       double x = ((double)(NI - it) * (-a) + (double)(it - 1) * a) / (double)(NI - 1);
       double y = ((double)(NJ - jt) * (-b) + (double)(jt - 1) * b) / (double)(NJ - 1);

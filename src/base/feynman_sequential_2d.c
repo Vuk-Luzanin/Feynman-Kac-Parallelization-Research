@@ -160,6 +160,7 @@ int main ( int argc, char **argv )
     ni = 1 + i4_ceiling ( a / b ) * ( nj - 1 );
   }
 
+  // printf("\nni = %d, nj = %d\n\n", ni, nj);
 /*
   Loop over the grid points.
 */
