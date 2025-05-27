@@ -45,6 +45,12 @@ inline double r8_uniform_01(int *seed)
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
+double feynman_6(const double a, const double h, const double stepsz, const int N) 
+{
+  return 0.0;
+}
+
+
 double feynman_0(const double a, const double h, const double stepsz, const int N) 
 {
   int seed = 123456789;
@@ -55,11 +61,8 @@ double feynman_0(const double a, const double h, const double stepsz, const int 
   double wt[NI+1] = {0};
 
 #pragma omp parallel default(none) shared(a, h, stepsz, N, n_inside, w_exact, wt, err) \
-                                   firstprivate(seed) 
+                                   shared(seed) 
 {
-  // seed is private variable, so numbers can generate uniformly
-  seed += omp_get_thread_num();
-
   for (int i = 1; i <= NI; i++)
   {
     // interpolacija koordinata kako bi se dobilo kada je i = 1 -> x = -a, kada je i = ni -> x = a
@@ -84,6 +87,9 @@ double feynman_0(const double a, const double h, const double stepsz, const int 
 #pragma omp for nowait reduction(+:wt[i])
     for (int trial = 0; trial < N; trial++)
     {
+      // seed is private variable, so numbers can generate uniformly
+      int localseed = seed + omp_get_thread_num() * 997 + trial;      // LEAP-FROG
+
       double x1 = x;
 
       double w = 1.0;
@@ -96,7 +102,7 @@ double feynman_0(const double a, const double h, const double stepsz, const int 
         double dx = ((double)rand() / RAND_MAX - 0.5) * sqrt((DIMENSIONS*1.0) * h);
 #else
         // da li se pomeramo za +stepsz ili -stepsz
-       double dx = (r8_uniform_01(&seed) - 0.5 < 0.0) ? -stepsz : stepsz;
+       double dx = (r8_uniform_01(&localseed) - 0.5 < 0.0) ? -stepsz : stepsz;
 #endif  
         // potential before moving
         double vs = potential(a, x1);
@@ -168,7 +174,7 @@ double feynman_1(const double a, const double h, const double stepsz, const int 
 #pragma omp parallel for reduction(+:local_sum)    
     for (int trial = 0; trial < N; trial++)
     {
-      int seed = 123456789 + omp_get_thread_num() * 997 + trial; // unikatni seed
+      int localseed = 123456789 + omp_get_thread_num() * 997 + trial;      // LEAP-FROG
 
       double x1 = x;
       double w = 1.0;
@@ -181,7 +187,7 @@ double feynman_1(const double a, const double h, const double stepsz, const int 
         double dx = ((double)rand() / RAND_MAX - 0.5) * sqrt((DIMENSIONS*1.0) * h);
 #else
         // da li se pomeramo za +stepsz ili -stepsz
-       double dx = (r8_uniform_01(&seed) - 0.5 < 0.0) ? -stepsz : stepsz;
+       double dx = (r8_uniform_01(&localseed) - 0.5 < 0.0) ? -stepsz : stepsz;
 #endif  
         // potential before moving
         double vs = potential(a, x1);
@@ -208,105 +214,18 @@ double feynman_1(const double a, const double h, const double stepsz, const int 
 }
 
 
-// solution with for directive for outer loop and reduction of error
+// solution with task per walk
 double feynman_2(const double a, const double h, const double stepsz, const int N) 
 {
   int seed = 123456789;
-  double err = 0.0;
-  int n_inside = 0;   // broj tacaka unutar elipsoida (unutar mreze)
-
-
-#pragma omp parallel default(none) shared(a, h, stepsz, N) \
-                                   firstprivate(seed) \
-                                   reduction(+ : err) \
-                                   reduction(+ : n_inside)
-{
-  // seed is private variable, so numbers can generate uniformly
-  seed += omp_get_thread_num();
-
-#pragma omp for schedule(dynamic)
-  for (int i = 1; i <= NI; i++)
-  {
-    // interpolacija koordinata kako bi se dobilo kada je i = 1 -> x = -a, kada je i = ni -> x = a
-    double x = ((double)(NI - i) * (-a) + (double)(i - 1) * a) / (double)(NI - 1);
-    double chk = pow(x / a, 2);
-
-    double w_exact = 0;
-    double wt = 0;
-
-    if (1.0 < chk)
-    {
-      // tacka nije unutar 1-D elipsoida
-      continue;
-    }
-    // tacka je unutar 1-D elipsoida
-    n_inside++;
-
-    // analitička vrednost funkcije gustine/potencijala u tački unutar elipsoida - referentna vrednost koju poredimo u odnosu na numericku - wt
-    w_exact = exp(pow(x / a, 2) - 1.0);
-    wt = 0.0;
-
-    // pustamo N tacaka iz izabrane koordinate - visestruki pokusaji kako bi se dobila bolja aproksimacija
-    for (int trial = 0; trial < N; trial++)
-    {
-      double x1 = x;
-
-      double w = 1.0;
-      chk = 0.0;
-
-      // kretanje cestice - dok se nalazi unutar elipsoida
-      while (chk < 1.0)
-      {
-#ifdef SMALL_STEP
-        double dx = ((double)rand() / RAND_MAX - 0.5) * sqrt((DIMENSIONS*1.0) * h);
-#else
-        // da li se pomeramo za +stepsz ili -stepsz
-       double dx = (r8_uniform_01(&seed) - 0.5 < 0.0) ? -stepsz : stepsz;
-#endif  
-        // potential before moving
-        double vs = potential(a, x1);
-
-        // move
-        x1 = x1 + dx;
-
-        // potential after moving
-        double vh = potential(a, x1);
-
-        double we = (1.0 - h * vs) * w;           // Euler-ov korak
-        w = w - 0.5 * h * (vh * we + vs * w);     // trapezna aproksimacija
-
-        chk = pow(x1 / a, 2);
-      }
-      wt = wt + w;
-    }
-    // srednja vrenost tezine za N pokusaja
-    wt = wt / (double)(N);
-
-    // kvadrat razlike tacne i numericki dobijene vrednosti
-    err += pow(w_exact - wt, 2);
-  }
-} // parallel
-  // root-mean-square (RMS) error
-  return sqrt(err / (double)(n_inside));
-}
-
-
-// solution with task per walk
-double feynman_3(const double a, const double h, const double stepsz, const int N) 
-{
-  static int seed = 123456789;
   int n_inside = 0;   // broj tacaka unutar elipsoida (unutar mreze)
 
   // for every point in grid - must be initialized (moguce je da se desi da neki taskovi krenu da pristupaju matrici pre postavljanja na 0 -> citaju neinicijalizovanu memoriju)
   double w_exact[NI+1] = {0};
   double wt[NI+1] = {0};
 
-  #pragma omp threadprivate(seed) // then, it is private for every thread (no race condition)
-  #pragma omp parallel default(none) shared(a, h, stepsz, N, n_inside, w_exact, wt) 
-  {
-  // seed is private variable, so numbers can generate uniformly
-  seed += omp_get_thread_num();
-
+#pragma omp parallel default(none) shared(a, h, stepsz, N, n_inside, w_exact, wt, seed) 
+{
 #pragma omp single
 {  
   for (int i = 1; i <= NI; i++)
@@ -334,6 +253,9 @@ double feynman_3(const double a, const double h, const double stepsz, const int 
     {
 #pragma omp task shared(wt)
 {
+      // seed is private variable, so numbers can generate uniformly
+      int localseed = seed + omp_get_thread_num() * 997 + trial;      // LEAP-FROG
+
       double x1 = x;
 
       double w = 1.0;
@@ -346,7 +268,7 @@ double feynman_3(const double a, const double h, const double stepsz, const int 
         double dx = ((double)rand() / RAND_MAX - 0.5) * sqrt((DIMENSIONS*1.0) * h);
 #else
         // da li se pomeramo za +stepsz ili -stepsz
-       double dx = (r8_uniform_01(&seed) - 0.5 < 0.0) ? -stepsz : stepsz;
+       double dx = (r8_uniform_01(&localseed) - 0.5 < 0.0) ? -stepsz : stepsz;
 #endif  
         // potential before moving
         double vs = potential(a, x1);
@@ -399,7 +321,7 @@ unsigned int get_lock_index(int i)
 }
 
 // solution with task per walk
-double feynman_4(const double a, const double h, const double stepsz, const int N) 
+double feynman_3(const double a, const double h, const double stepsz, const int N) 
 {
   static int seed = 123456789;
   int n_inside = 0;   // broj tacaka unutar elipsoida (unutar mreze)
@@ -408,12 +330,8 @@ double feynman_4(const double a, const double h, const double stepsz, const int 
   double w_exact[NI+1] = {0};
   double wt[NI+1] = {0};
 
-  #pragma omp threadprivate(seed) // then, it is private for every thread (no race condition)
-  #pragma omp parallel default(none) shared(a, h, stepsz, N, n_inside, w_exact, wt, locks) 
-  {
-  // seed is private variable, so numbers can generate uniformly
-  seed += omp_get_thread_num();
-
+#pragma omp parallel default(none) shared(a, h, stepsz, N, n_inside, w_exact, wt, locks, seed) 
+{
 #pragma omp single
 {  
   for (int i = 1; i <= NI; i++)
@@ -440,7 +358,10 @@ double feynman_4(const double a, const double h, const double stepsz, const int 
     for (int trial = 0; trial < N; trial++)
     {
 #pragma omp task shared(wt)
-{
+{ 
+      // seed is private variable, so numbers can generate uniformly
+      int localseed = seed + omp_get_thread_num() * 997 + trial;      // LEAP-FROG
+
       double x1 = x;
 
       double w = 1.0;
@@ -453,7 +374,7 @@ double feynman_4(const double a, const double h, const double stepsz, const int 
         double dx = ((double)rand() / RAND_MAX - 0.5) * sqrt((DIMENSIONS*1.0) * h);
 #else
         // da li se pomeramo za +stepsz ili -stepsz
-       double dx = (r8_uniform_01(&seed) - 0.5 < 0.0) ? -stepsz : stepsz;
+       double dx = (r8_uniform_01(&localseed) - 0.5 < 0.0) ? -stepsz : stepsz;
 #endif  
         // potential before moving
         double vs = potential(a, x1);
@@ -494,8 +415,90 @@ double feynman_4(const double a, const double h, const double stepsz, const int 
   return sqrt(err / (double)(n_inside));
 }
 
+// solution with for directive for outer loop and reduction of error
+double feynman_5(const double a, const double h, const double stepsz, const int N) 
+{
+  int seed = 123456789;
+  double err = 0.0;
+  int n_inside = 0;   // broj tacaka unutar elipsoida (unutar mreze)
 
-double (*FUNCS[])(const double, const double, const double, const int) = {feynman_0, feynman_1, feynman_2, feynman_3, feynman_4};
+
+#pragma omp parallel default(none) shared(a, h, stepsz, N, seed) \
+                                   reduction(+ : err) \
+                                   reduction(+ : n_inside)
+{
+
+#pragma omp for schedule(dynamic)
+  for (int i = 1; i <= NI; i++)
+  {
+    // interpolacija koordinata kako bi se dobilo kada je i = 1 -> x = -a, kada je i = ni -> x = a
+    double x = ((double)(NI - i) * (-a) + (double)(i - 1) * a) / (double)(NI - 1);
+    double chk = pow(x / a, 2);
+
+    double w_exact = 0;
+    double wt = 0;
+
+    if (1.0 < chk)
+    {
+      // tacka nije unutar 1-D elipsoida
+      continue;
+    }
+    // tacka je unutar 1-D elipsoida
+    n_inside++;
+
+    // analitička vrednost funkcije gustine/potencijala u tački unutar elipsoida - referentna vrednost koju poredimo u odnosu na numericku - wt
+    w_exact = exp(pow(x / a, 2) - 1.0);
+    wt = 0.0;
+
+    // pustamo N tacaka iz izabrane koordinate - visestruki pokusaji kako bi se dobila bolja aproksimacija
+    for (int trial = 0; trial < N; trial++)
+    {
+      // seed is private variable, so numbers can generate uniformly
+      int localseed = seed + omp_get_thread_num() * 997 + trial;      // LEAP-FROG
+
+      double x1 = x;
+
+      double w = 1.0;
+      chk = 0.0;
+
+      // kretanje cestice - dok se nalazi unutar elipsoida
+      while (chk < 1.0)
+      {
+#ifdef SMALL_STEP
+        double dx = ((double)rand() / RAND_MAX - 0.5) * sqrt((DIMENSIONS*1.0) * h);
+#else
+        // da li se pomeramo za +stepsz ili -stepsz
+       double dx = (r8_uniform_01(&localseed) - 0.5 < 0.0) ? -stepsz : stepsz;
+#endif  
+        // potential before moving
+        double vs = potential(a, x1);
+
+        // move
+        x1 = x1 + dx;
+
+        // potential after moving
+        double vh = potential(a, x1);
+
+        double we = (1.0 - h * vs) * w;           // Euler-ov korak
+        w = w - 0.5 * h * (vh * we + vs * w);     // trapezna aproksimacija
+
+        chk = pow(x1 / a, 2);
+      }
+      wt = wt + w;
+    }
+    // srednja vrenost tezine za N pokusaja
+    wt = wt / (double)(N);
+
+    // kvadrat razlike tacne i numericki dobijene vrednosti
+    err += pow(w_exact - wt, 2);
+  }
+} // parallel
+  // root-mean-square (RMS) error
+  return sqrt(err / (double)(n_inside));
+}
+
+
+double (*FUNCS[])(const double, const double, const double, const int) = {feynman_0, feynman_1, feynman_2, feynman_3, feynman_5, feynman_6};
 
 int main ( int argc, char **argv )
 {
