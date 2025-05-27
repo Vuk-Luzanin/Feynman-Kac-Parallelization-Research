@@ -53,48 +53,85 @@ typedef struct
 // solution with spiral matrix traversal
 double feynman_6(const double a, const double b, const double h, const double stepsz, const int N) 
 {
+  // mat[n] -> n-ta tacka
+  // mat[n][0] -> x kordinata
+  // mat[n][1] -> y kordinata
+  double mat[NI * NJ][2];
+
+  int left = 1, right = NJ + 1;
+  int top = 1, bottom = NI + 1;
+
+  int cnt = 0;
+  while (left < right && top < bottom) 
+  {
+    // left to right
+    for (int i = left; i < right; i++)
+    {
+      mat[cnt][0] = ((double)(NI - top) * (-a) + (double)(top - 1) * a) / (double)(NI - 1);
+      mat[cnt][1] = ((double)(NJ - i) * (-b) + (double)(i - 1) * b) / (double)(NJ - 1);
+      cnt++;
+    }
+    top++;
+
+    // top to bottom
+    for (int i = top; i < bottom; i++)
+    {
+      mat[cnt][0] = ((double)(NI - i) * (-a) + (double)(i - 1) * a) / (double)(NI - 1);
+      mat[cnt][1] = ((double)(NJ - right - 1) * (-b) + (double)(right - 2) * b) / (double)(NJ - 1);
+      cnt++;
+    }
+    right--;
+
+    // if we had only one "line" left then we are done
+    if (!(left < right && top < bottom))
+      break;
+
+    // right to left
+    for (int i = right - 1; i >= left; i--)
+    {
+      mat[cnt][0] = ((double)(NI - bottom - 1) * (-a) + (double)(bottom - 2) * a) / (double)(NI - 1);
+      mat[cnt][1] = ((double)(NJ - i) * (-b) + (double)(i - 1) * b) / (double)(NJ - 1);
+      cnt++;
+    }
+    bottom--;
+
+    //bottom to top
+    for (int i = bottom - 1; i >= top; i--)
+    {
+      mat[cnt][0] = ((double)(NI - i) * (-a) + (double)(i - 1) * a) / (double)(NI - 1);
+      mat[cnt][1] = ((double)(NJ - left) * (-b) + (double)(left - 1) * b) / (double)(NJ - 1);
+      cnt++;
+    }
+    left++;
+
+  }
+
   int seed = 123456789;   
   double err = 0.0;
-  int n_inside = 0;   // broj tacaka unutar elipsoida (unutar mreze)
+  int n_inside = 0; 
 
-  int_pair directions[] = {{0, 1}, {1, 0}, {0, -1}, {-1, 0}};;
-  int steps[] = {NJ + 1, NI};
 
-  int i = 1, j = 0, d = 0;
+#pragma omp parallel for schedule(guided) \
+                         reduction(+:err, n_inside)
+  for (int i = 0; i < NI*NJ; i++)
+  {
+    double x = mat[i][0];
+    double y = mat[i][1];
+    double chk = pow(x / a, 2) + pow(y / b, 2);
 
-#pragma omp parallel default(none) \
-                     shared(a, b, h, stepsz, N, directions, seed) \
-                     reduction(+:err, n_inside) \
-                     firstprivate(steps, i, j, d)
-{
-  while (steps[d % 2]) {
-    int it = i, jt = j;
-
-    #pragma omp for nowait
-    for (int s = 0; s < steps[d % 2]; s++) 
+    if ( 1.0 < chk )
     {
-      it = i + (s + 1) * directions[d].first;
-      jt = j + (s + 1) * directions[d].second;
+      // tacka nije unutar 2-D elipsoida
+      continue;
+    }
 
-      double x = ((double)(NI - it) * (-a) + (double)(it - 1) * a) / (double)(NI - 1);
-      double y = ((double)(NJ - jt) * (-b) + (double)(jt - 1) * b) / (double)(NJ - 1);
-      // obrada
+    n_inside++;
+    double w_exact = exp ( pow ( x / a, 2 )
+                + pow ( y / b, 2 ) - 1.0 );
+    double wt = 0;
 
-      double chk = pow(x / a, 2) + pow(y / b, 2);
-
-      if ( 1.0 < chk )
-      {
-        // tacka nije unutar 2-D elipsoida
-        continue;
-      }
-
-      n_inside++;
-      double w_exact = exp ( pow ( x / a, 2 )
-                      + pow ( y / b, 2 ) - 1.0 );
-      double wt = 0;
-
-      for (int trial = 0; trial < N; trial++)
-      {
+    for (int trial = 0; trial < N; trial++)
+    {   
         // seed is private variable, so numbers can generate uniformly
         int localseed = seed + omp_get_thread_num() * 997 + trial;      // LEAP-FROG
 
@@ -133,20 +170,12 @@ double feynman_6(const double a, const double b, const double h, const double st
           chk = pow(x1 / a, 2) + pow(x2 / b, 2);
         }
         wt += w;
-      }
-
-      wt = wt / ( double ) ( N ); 
-      err = err + pow ( w_exact - wt, 2 );
     }
 
-    i += steps[d % 2] * (directions[d].first);
-    j += steps[d % 2] * (directions[d].second);
+    wt = wt / ( double ) ( N ); 
+    err = err + pow ( w_exact - wt, 2 );
+  }
 
-    steps[d % 2]--;
-    d = (d + 1) % 4;
-
-    }
-} // parallel region
   return err = sqrt ( err / ( double ) ( n_inside ) );
 }
 
