@@ -10,7 +10,6 @@
 #define NI          11
 #define NJ          6
 
-
 static double a = 2.0;
 static double b = 30.0;
 static double h = 0.001;
@@ -52,7 +51,7 @@ typedef struct
 } int_pair;
 
 // solution with spiral matrix traversal
-double feynman_6(const double a, const double b, const double h, const double stepsz, const int N) 
+double feynman_0(const double a, const double b, const double h, const double stepsz, const int N) 
 {
   static int seed = 123456789;   
   double err = 0.0;
@@ -156,7 +155,7 @@ double feynman_6(const double a, const double b, const double h, const double st
 
 
 
-double feynman_0(const double a, const double b, const double h, const double stepsz, const int N) 
+double feynman_1(const double a, const double b, const double h, const double stepsz, const int N) 
 {
   int seed = 123456789;
   double err = 0.0;
@@ -267,7 +266,7 @@ double feynman_0(const double a, const double b, const double h, const double st
   return sqrt(err / (double)(n_inside));
 }
 
-double feynman_1(const double a, const double b, const double h, const double stepsz, const int N)
+double feynman_2(const double a, const double b, const double h, const double stepsz, const int N)
 {
   double err = 0.0;
   int n_inside = 0;
@@ -333,203 +332,8 @@ double feynman_1(const double a, const double b, const double h, const double st
 }
 
 
-// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-// solution with for collapse of outer loops and reduction of error
-double feynman_2(const double a, const double b, const double h, const double stepsz, const int N) 
-{
-  int seed = 123456789;
-  double err = 0.0;
-  int n_inside = 0;   // broj tacaka unutar elipsoida (unutar mreze)
-
-#pragma omp parallel default(none) shared(a, b, h, stepsz, N) \
-                                   firstprivate(seed) \
-                                   reduction(+ : err) \
-                                   reduction(+ : n_inside)
-{
-  // seed is private variable, so numbers can generate uniformly
-  seed += omp_get_thread_num();
-
-#pragma omp for collapse(2)
-  for (int i = 1; i <= NI; i++)
-  {
-    for (int j = 1; j <= NJ; j++ )
-    {
-      // interpolacija koordinata kako bi se dobilo kada je i = 1 -> x = -a, kada je i = ni -> x = a
-      double x = ((double)(NI - i) * (-a) + (double)(i - 1) * a) / (double)(NI - 1);
-      double y = ((double)(NJ - j) * (-b) + (double)(j - 1) * b) / (double)(NJ - 1);
-      double chk = pow(x / a, 2) + pow(y / b, 2);
-
-      double w_exact = 0.0;
-      double wt = 0.0;
-
-      if ( 1.0 < chk )
-      {
-        // tacka nije unutar 1-D elipsoida
-        continue;
-      }
-
-      // tacka je unutar 2-D elipsoida
-      n_inside++;
- 
-      // analitička vrednost funkcije gustine/potencijala u tački unutar elipsoida - referentna vrednost koju poredimo u odnosu na numericku - wt
-      w_exact = exp(pow(x / a, 2) + pow(y / b, 2) - 1.0);
-      wt = 0.0;
-
-      // pustamo N tacaka iz izabrane koordinate - visestruki pokusaji kako bi se dobila bolja aproksimacija
-      for (int trial = 0; trial < N; trial++)
-      {
-        double x1 = x;
-        double x2 = y;
-  
-        double w = 1.0;
-        chk = 0.0;
-
-        // kretanje cestice - dok se nalazi unutar elipsoida
-        while (chk < 1.0)
-        {
-#ifdef SMALL_STEP
-            double dx = ((double)rand() / RAND_MAX - 0.5) * sqrt((DIMENSIONS*1.0) * h);
-            double dy = ((double)rand() / RAND_MAX - 0.5) * sqrt((DIMENSIONS*1.0) * h);
-#else
-          double ut = r8_uniform_01 ( &seed );
-
-          double dx = 0;
-          double dy = 0;
-
-          ut = r8_uniform_01(&seed);
-          dx = (ut < 0.5) ? ((r8_uniform_01(&seed) - 0.5) < 0.0 ? -stepsz : stepsz) : 0.0;
-
-          ut = r8_uniform_01(&seed);
-          dy = (ut < 0.5) ? ((r8_uniform_01(&seed) - 0.5) < 0.0 ? -stepsz : stepsz) : 0.0;
-#endif
-          // potential before moving
-          double vs = potential(a, b, x1, x2);
-
-          // move
-          x1 = x1 + dx;
-          x2 = x2 + dy;
-        
-          // potential after moving
-          double vh = potential(a, b, x1, x2);
-
-          double we = (1.0 - h * vs) * w;           // Euler-ov korak
-          w = w - 0.5 * h * (vh * we + vs * w);     // trapezna aproksimacija
-  
-          chk = pow(x1 / a, 2) + pow(x2 / b, 2);
-        }
-        wt = wt + w;
-      }
-      // srednja vrenost tezine za N pokusaja
-      wt = wt / (double)(N);
-
-      // kvadrat razlike tacne i numericki dobijene vrednosti
-      err += pow(w_exact - wt, 2);
-    }
-  }
-} // parallel
-  // root-mean-square (RMS) error
-  return sqrt(err / (double)(n_inside));
-}
-
-// solution with for directive for outer loop and reduction of error
-double feynman_3(const double a, const double b, const double h, const double stepsz, const int N) 
-{
-  int seed = 123456789;
-  double err = 0.0;
-  int n_inside = 0;   // broj tacaka unutar elipsoida (unutar mreze)
-
-#pragma omp parallel default(none) shared(a, b, h, stepsz, N) \
-                                   firstprivate(seed) \
-                                   reduction(+ : err) \
-                                   reduction(+ : n_inside)
-{
-  // seed is private variable, so numbers can generate uniformly
-  seed += omp_get_thread_num();
-
-#pragma omp for schedule(dynamic)
-  for (int i = 1; i <= NI; i++)
-  {
-    for (int j = 1; j <= NJ; j++ )
-    {
-      // interpolacija koordinata kako bi se dobilo kada je i = 1 -> x = -a, kada je i = ni -> x = a
-      double x = ((double)(NI - i) * (-a) + (double)(i - 1) * a) / (double)(NI - 1);
-      double y = ((double)(NJ - j) * (-b) + (double)(j - 1) * b) / (double)(NJ - 1);
-      double chk = pow(x / a, 2) + pow(y / b, 2);
-
-      double w_exact = 0.0;
-      double wt = 0.0;
-
-      if ( 1.0 < chk )
-      {
-        // tacka nije unutar 1-D elipsoida
-        continue;
-      }
-
-      // tacka je unutar 2-D elipsoida
-      n_inside++;
- 
-      // analitička vrednost funkcije gustine/potencijala u tački unutar elipsoida - referentna vrednost koju poredimo u odnosu na numericku - wt
-      w_exact = exp(pow(x / a, 2) + pow(y / b, 2) - 1.0);
-      wt = 0.0;
-
-      // pustamo N tacaka iz izabrane koordinate - visestruki pokusaji kako bi se dobila bolja aproksimacija
-      for (int trial = 0; trial < N; trial++)
-      {
-        double x1 = x;
-        double x2 = y;
-  
-        double w = 1.0;
-        chk = 0.0;
-
-        // kretanje cestice - dok se nalazi unutar elipsoida
-        while (chk < 1.0)
-        {
-#ifdef SMALL_STEP
-            double dx = ((double)rand() / RAND_MAX - 0.5) * sqrt((DIMENSIONS*1.0) * h);
-            double dy = ((double)rand() / RAND_MAX - 0.5) * sqrt((DIMENSIONS*1.0) * h);
-#else
-          double ut = r8_uniform_01 ( &seed );
-
-          double dx = 0;
-          double dy = 0;
-
-          ut = r8_uniform_01(&seed);
-          dx = (ut < 0.5) ? ((r8_uniform_01(&seed) - 0.5) < 0.0 ? -stepsz : stepsz) : 0.0;
-
-          ut = r8_uniform_01(&seed);
-          dy = (ut < 0.5) ? ((r8_uniform_01(&seed) - 0.5) < 0.0 ? -stepsz : stepsz) : 0.0;
-#endif
-          // potential before moving
-          double vs = potential(a, b, x1, x2);
-
-          // move
-          x1 = x1 + dx;
-          x2 = x2 + dy;
-        
-          // potential after moving
-          double vh = potential(a, b, x1, x2);
-
-          double we = (1.0 - h * vs) * w;           // Euler-ov korak
-          w = w - 0.5 * h * (vh * we + vs * w);     // trapezna aproksimacija
-  
-          chk = pow(x1 / a, 2) + pow(x2 / b, 2);
-        }
-        wt = wt + w;
-      }
-      // srednja vrenost tezine za N pokusaja
-      wt = wt / (double)(N);
-
-      // kvadrat razlike tacne i numericki dobijene vrednosti
-      err += pow(w_exact - wt, 2);
-    }
-  }
-} // parallel
-  // root-mean-square (RMS) error
-  return sqrt(err / (double)(n_inside));
-}
-
 // solution with task per walk
-double feynman_4(const double a, const double b, const double h, const double stepsz, const int N) 
+double feynman_3(const double a, const double b, const double h, const double stepsz, const int N) 
 {
   static int seed = 123456789;
   int n_inside = 0;   // broj tacaka unutar elipsoida (unutar mreze)
@@ -659,7 +463,7 @@ unsigned int get_lock_index(int i, int j)
 
 
 // solution with task per walk
-double feynman_5(const double a, const double b, const double h, const double stepsz, const int N) 
+double feynman_4(const double a, const double b, const double h, const double stepsz, const int N) 
 {
   static int seed = 123456789;     // set to be static -> to be global (shared) by default
   int n_inside = 0;   // broj tacaka unutar elipsoida (unutar mreze)
@@ -785,8 +589,203 @@ double feynman_5(const double a, const double b, const double h, const double st
 }
 
 
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+// solution with for collapse of outer loops and reduction of error
+double feynman_5(const double a, const double b, const double h, const double stepsz, const int N) 
+{
+  int seed = 123456789;
+  double err = 0.0;
+  int n_inside = 0;   // broj tacaka unutar elipsoida (unutar mreze)
 
-double (*FUNCS[])(const double, const double, const double, const double, const int) = {feynman_6, feynman_0, feynman_1, feynman_2, feynman_3, feynman_4, feynman_5};
+#pragma omp parallel default(none) shared(a, b, h, stepsz, N) \
+                                   firstprivate(seed) \
+                                   reduction(+ : err) \
+                                   reduction(+ : n_inside)
+{
+  // seed is private variable, so numbers can generate uniformly
+  seed += omp_get_thread_num();
+
+#pragma omp for collapse(2)
+  for (int i = 1; i <= NI; i++)
+  {
+    for (int j = 1; j <= NJ; j++ )
+    {
+      // interpolacija koordinata kako bi se dobilo kada je i = 1 -> x = -a, kada je i = ni -> x = a
+      double x = ((double)(NI - i) * (-a) + (double)(i - 1) * a) / (double)(NI - 1);
+      double y = ((double)(NJ - j) * (-b) + (double)(j - 1) * b) / (double)(NJ - 1);
+      double chk = pow(x / a, 2) + pow(y / b, 2);
+
+      double w_exact = 0.0;
+      double wt = 0.0;
+
+      if ( 1.0 < chk )
+      {
+        // tacka nije unutar 1-D elipsoida
+        continue;
+      }
+
+      // tacka je unutar 2-D elipsoida
+      n_inside++;
+ 
+      // analitička vrednost funkcije gustine/potencijala u tački unutar elipsoida - referentna vrednost koju poredimo u odnosu na numericku - wt
+      w_exact = exp(pow(x / a, 2) + pow(y / b, 2) - 1.0);
+      wt = 0.0;
+
+      // pustamo N tacaka iz izabrane koordinate - visestruki pokusaji kako bi se dobila bolja aproksimacija
+      for (int trial = 0; trial < N; trial++)
+      {
+        double x1 = x;
+        double x2 = y;
+  
+        double w = 1.0;
+        chk = 0.0;
+
+        // kretanje cestice - dok se nalazi unutar elipsoida
+        while (chk < 1.0)
+        {
+#ifdef SMALL_STEP
+            double dx = ((double)rand() / RAND_MAX - 0.5) * sqrt((DIMENSIONS*1.0) * h);
+            double dy = ((double)rand() / RAND_MAX - 0.5) * sqrt((DIMENSIONS*1.0) * h);
+#else
+          double ut = r8_uniform_01 ( &seed );
+
+          double dx = 0;
+          double dy = 0;
+
+          ut = r8_uniform_01(&seed);
+          dx = (ut < 0.5) ? ((r8_uniform_01(&seed) - 0.5) < 0.0 ? -stepsz : stepsz) : 0.0;
+
+          ut = r8_uniform_01(&seed);
+          dy = (ut < 0.5) ? ((r8_uniform_01(&seed) - 0.5) < 0.0 ? -stepsz : stepsz) : 0.0;
+#endif
+          // potential before moving
+          double vs = potential(a, b, x1, x2);
+
+          // move
+          x1 = x1 + dx;
+          x2 = x2 + dy;
+        
+          // potential after moving
+          double vh = potential(a, b, x1, x2);
+
+          double we = (1.0 - h * vs) * w;           // Euler-ov korak
+          w = w - 0.5 * h * (vh * we + vs * w);     // trapezna aproksimacija
+  
+          chk = pow(x1 / a, 2) + pow(x2 / b, 2);
+        }
+        wt = wt + w;
+      }
+      // srednja vrenost tezine za N pokusaja
+      wt = wt / (double)(N);
+
+      // kvadrat razlike tacne i numericki dobijene vrednosti
+      err += pow(w_exact - wt, 2);
+    }
+  }
+} // parallel
+  // root-mean-square (RMS) error
+  return sqrt(err / (double)(n_inside));
+}
+
+// solution with for directive for outer loop and reduction of error
+double feynman_6(const double a, const double b, const double h, const double stepsz, const int N) 
+{
+  int seed = 123456789;
+  double err = 0.0;
+  int n_inside = 0;   // broj tacaka unutar elipsoida (unutar mreze)
+
+#pragma omp parallel default(none) shared(a, b, h, stepsz, N) \
+                                   firstprivate(seed) \
+                                   reduction(+ : err) \
+                                   reduction(+ : n_inside)
+{
+  // seed is private variable, so numbers can generate uniformly
+  seed += omp_get_thread_num();
+
+#pragma omp for schedule(dynamic)
+  for (int i = 1; i <= NI; i++)
+  {
+    for (int j = 1; j <= NJ; j++ )
+    {
+      // interpolacija koordinata kako bi se dobilo kada je i = 1 -> x = -a, kada je i = ni -> x = a
+      double x = ((double)(NI - i) * (-a) + (double)(i - 1) * a) / (double)(NI - 1);
+      double y = ((double)(NJ - j) * (-b) + (double)(j - 1) * b) / (double)(NJ - 1);
+      double chk = pow(x / a, 2) + pow(y / b, 2);
+
+      double w_exact = 0.0;
+      double wt = 0.0;
+
+      if ( 1.0 < chk )
+      {
+        // tacka nije unutar 1-D elipsoida
+        continue;
+      }
+
+      // tacka je unutar 2-D elipsoida
+      n_inside++;
+ 
+      // analitička vrednost funkcije gustine/potencijala u tački unutar elipsoida - referentna vrednost koju poredimo u odnosu na numericku - wt
+      w_exact = exp(pow(x / a, 2) + pow(y / b, 2) - 1.0);
+      wt = 0.0;
+
+      // pustamo N tacaka iz izabrane koordinate - visestruki pokusaji kako bi se dobila bolja aproksimacija
+      for (int trial = 0; trial < N; trial++)
+      {
+        double x1 = x;
+        double x2 = y;
+  
+        double w = 1.0;
+        chk = 0.0;
+
+        // kretanje cestice - dok se nalazi unutar elipsoida
+        while (chk < 1.0)
+        {
+#ifdef SMALL_STEP
+            double dx = ((double)rand() / RAND_MAX - 0.5) * sqrt((DIMENSIONS*1.0) * h);
+            double dy = ((double)rand() / RAND_MAX - 0.5) * sqrt((DIMENSIONS*1.0) * h);
+#else
+          double ut = r8_uniform_01 ( &seed );
+
+          double dx = 0;
+          double dy = 0;
+
+          ut = r8_uniform_01(&seed);
+          dx = (ut < 0.5) ? ((r8_uniform_01(&seed) - 0.5) < 0.0 ? -stepsz : stepsz) : 0.0;
+
+          ut = r8_uniform_01(&seed);
+          dy = (ut < 0.5) ? ((r8_uniform_01(&seed) - 0.5) < 0.0 ? -stepsz : stepsz) : 0.0;
+#endif
+          // potential before moving
+          double vs = potential(a, b, x1, x2);
+
+          // move
+          x1 = x1 + dx;
+          x2 = x2 + dy;
+        
+          // potential after moving
+          double vh = potential(a, b, x1, x2);
+
+          double we = (1.0 - h * vs) * w;           // Euler-ov korak
+          w = w - 0.5 * h * (vh * we + vs * w);     // trapezna aproksimacija
+  
+          chk = pow(x1 / a, 2) + pow(x2 / b, 2);
+        }
+        wt = wt + w;
+      }
+      // srednja vrenost tezine za N pokusaja
+      wt = wt / (double)(N);
+
+      // kvadrat razlike tacne i numericki dobijene vrednosti
+      err += pow(w_exact - wt, 2);
+    }
+  }
+} // parallel
+  // root-mean-square (RMS) error
+  return sqrt(err / (double)(n_inside));
+}
+
+
+double (*FUNCS[])(const double, const double, const double, const double, const int) = {feynman_0, feynman_1, feynman_2, feynman_3, feynman_4, feynman_5, feynman_6};
 
 int main ( int argc, char **argv )
 {
