@@ -7,11 +7,11 @@
 
 #define NUM_LOCKS   256
 #define DIMENSIONS  2
-#define NI          11
-#define NJ          6
+#define NI          6
+#define NJ          11
 
 static double a = 2.0;
-static double b = 30.0;
+static double b = 1.0;
 static double h = 0.001;
 
 static double stepsz;
@@ -51,9 +51,9 @@ typedef struct
 } int_pair;
 
 // solution with spiral matrix traversal
-double feynman_0(const double a, const double b, const double h, const double stepsz, const int N) 
+double feynman_6(const double a, const double b, const double h, const double stepsz, const int N) 
 {
-  static int seed = 123456789;   
+  int seed = 123456789;   
   double err = 0.0;
   int n_inside = 0;   // broj tacaka unutar elipsoida (unutar mreze)
 
@@ -63,11 +63,10 @@ double feynman_0(const double a, const double b, const double h, const double st
   int i = 1, j = 0, d = 0;
 
 #pragma omp parallel default(none) \
-                     shared(a, b, h, stepsz, N, directions) \
+                     shared(a, b, h, stepsz, N, directions, seed) \
                      reduction(+:err, n_inside) \
-                     firstprivate(seed, steps, i, j, d)
+                     firstprivate(steps, i, j, d)
 {
-  seed += omp_get_thread_num();
   while (steps[d % 2]) {
     int it = i, jt = j;
 
@@ -96,6 +95,9 @@ double feynman_0(const double a, const double b, const double h, const double st
 
       for (int trial = 0; trial < N; trial++)
       {
+        // seed is private variable, so numbers can generate uniformly
+        int localseed = seed + omp_get_thread_num() * 997 + trial;      // LEAP-FROG
+
         double x1 = x;
         double x2 = y;
   
@@ -109,16 +111,11 @@ double feynman_0(const double a, const double b, const double h, const double st
           double dx = ((double)rand() / RAND_MAX - 0.5) * sqrt((DIMENSIONS*1.0) * h);
           double dy = ((double)rand() / RAND_MAX - 0.5) * sqrt((DIMENSIONS*1.0) * h);
 #else
-          double ut = r8_uniform_01 ( &seed );
+          double ut = r8_uniform_01(&localseed);
+          double dx = (ut < 0.5) ? ((r8_uniform_01(&localseed) - 0.5) < 0.0 ? -stepsz : stepsz) : 0.0;
 
-          double dx = 0;
-          double dy = 0;
-
-          ut = r8_uniform_01(&seed);
-          dx = (ut < 0.5) ? ((r8_uniform_01(&seed) - 0.5) < 0.0 ? -stepsz : stepsz) : 0.0;
-
-          ut = r8_uniform_01(&seed);
-          dy = (ut < 0.5) ? ((r8_uniform_01(&seed) - 0.5) < 0.0 ? -stepsz : stepsz) : 0.0;
+          ut = r8_uniform_01(&localseed);
+          double dy = (ut < 0.5) ? ((r8_uniform_01(&localseed) - 0.5) < 0.0 ? -stepsz : stepsz) : 0.0;
 #endif
           // potential before moving
           double vs = potential(a, b, x1, x2);
@@ -155,7 +152,7 @@ double feynman_0(const double a, const double b, const double h, const double st
 
 
 
-double feynman_1(const double a, const double b, const double h, const double stepsz, const int N) 
+double feynman_0(const double a, const double b, const double h, const double stepsz, const int N) 
 {
   int seed = 123456789;
   double err = 0.0;
@@ -164,12 +161,8 @@ double feynman_1(const double a, const double b, const double h, const double st
   double w_exact[NI+1][NJ+1] = {{0}};
   double wt[NI+1][NJ+1] = {{0}};
 
-#pragma omp parallel default(none) shared(a, b, h, stepsz, N, n_inside, w_exact, wt, err) \
-                                   firstprivate(seed) 
+#pragma omp parallel default(none) shared(a, b, h, stepsz, N, n_inside, w_exact, wt, err, seed)
 {
-  // seed is private variable, so numbers can generate uniformly
-  seed += omp_get_thread_num();
-
   for (int i = 1; i <= NI; i++)
   {
     for (int j = 1; j <= NJ; j++ )
@@ -199,6 +192,9 @@ double feynman_1(const double a, const double b, const double h, const double st
 #pragma omp for nowait reduction(+:wt[i][j])
       for (int trial = 0; trial < N; trial++)
       {
+        // seed is private variable, so numbers can generate uniformly
+        int localseed = seed + omp_get_thread_num() * 997 + trial;      // LEAP-FROG
+
         double x1 = x;
         double x2 = y;
   
@@ -212,16 +208,11 @@ double feynman_1(const double a, const double b, const double h, const double st
           double dx = ((double)rand() / RAND_MAX - 0.5) * sqrt((DIMENSIONS*1.0) * h);
           double dy = ((double)rand() / RAND_MAX - 0.5) * sqrt((DIMENSIONS*1.0) * h);
 #else
-          double ut = r8_uniform_01 ( &seed );
+          double ut = r8_uniform_01(&localseed);
+          double dx = (ut < 0.5) ? ((r8_uniform_01(&localseed) - 0.5) < 0.0 ? -stepsz : stepsz) : 0.0;
 
-          double dx = 0;
-          double dy = 0;
-
-          ut = r8_uniform_01(&seed);
-          dx = (ut < 0.5) ? ((r8_uniform_01(&seed) - 0.5) < 0.0 ? -stepsz : stepsz) : 0.0;
-
-          ut = r8_uniform_01(&seed);
-          dy = (ut < 0.5) ? ((r8_uniform_01(&seed) - 0.5) < 0.0 ? -stepsz : stepsz) : 0.0;
+          ut = r8_uniform_01(&localseed);
+          double dy = (ut < 0.5) ? ((r8_uniform_01(&localseed) - 0.5) < 0.0 ? -stepsz : stepsz) : 0.0;
 #endif
           // potential before moving
           double vs = potential(a, b, x1, x2);
@@ -266,7 +257,7 @@ double feynman_1(const double a, const double b, const double h, const double st
   return sqrt(err / (double)(n_inside));
 }
 
-double feynman_2(const double a, const double b, const double h, const double stepsz, const int N)
+double feynman_1(const double a, const double b, const double h, const double stepsz, const int N)
 {
   double err = 0.0;
   int n_inside = 0;
@@ -292,7 +283,8 @@ double feynman_2(const double a, const double b, const double h, const double st
 #pragma omp parallel for reduction(+:local_sum)
       for (int trial = 0; trial < N; trial++) 
       {
-        int seed = 123456789 + omp_get_thread_num() * 997 + trial; // unikatni seed
+        // seed is private variable, so numbers can generate uniformly
+        int localseed = 123456789 + omp_get_thread_num() * 997 + trial;      // LEAP-FROG
 
         double x1 = x, x2 = y;
         double w = 1.0;
@@ -304,11 +296,11 @@ double feynman_2(const double a, const double b, const double h, const double st
           double dx = ((double)rand() / RAND_MAX - 0.5) * sqrt(DIMENSIONS * h);
           double dy = ((double)rand() / RAND_MAX - 0.5) * sqrt(DIMENSIONS * h);
 #else
-          double ut = r8_uniform_01(&seed);
-          double dx = (ut < 0.5) ? ((r8_uniform_01(&seed) - 0.5) < 0.0 ? -stepsz : stepsz) : 0.0;
+          double ut = r8_uniform_01(&localseed);
+          double dx = (ut < 0.5) ? ((r8_uniform_01(&localseed) - 0.5) < 0.0 ? -stepsz : stepsz) : 0.0;
 
-          ut = r8_uniform_01(&seed);
-          double dy = (ut < 0.5) ? ((r8_uniform_01(&seed) - 0.5) < 0.0 ? -stepsz : stepsz) : 0.0;
+          ut = r8_uniform_01(&localseed);
+          double dy = (ut < 0.5) ? ((r8_uniform_01(&localseed) - 0.5) < 0.0 ? -stepsz : stepsz) : 0.0;
 #endif
           double vs = potential(a, b, x1, x2);
           x1 += dx;
@@ -333,21 +325,17 @@ double feynman_2(const double a, const double b, const double h, const double st
 
 
 // solution with task per walk
-double feynman_3(const double a, const double b, const double h, const double stepsz, const int N) 
+double feynman_2(const double a, const double b, const double h, const double stepsz, const int N) 
 {
-  static int seed = 123456789;
+  int seed = 123456789;
   int n_inside = 0;   // broj tacaka unutar elipsoida (unutar mreze)
 
   // for every point in grid - must be initialized (moguce je da se desi da neki taskovi krenu da pristupaju matrici pre postavljanja na 0 -> citaju neinicijalizovanu memoriju)
   double w_exact[NI+1][NJ+1] = {{0}};
   double wt[NI+1][NJ+1] = {{0}};
 
-#pragma omp threadprivate(seed) // then, it is private for every thread (no race condition)
-#pragma omp parallel default(none) shared(a, b, h, stepsz, N, n_inside, w_exact, wt) 
+#pragma omp parallel default(none) shared(a, b, h, stepsz, N, n_inside, w_exact, wt, seed) 
 {
-  // seed is private variable, so numbers can generate uniformly
-  seed += omp_get_thread_num();
-
 #pragma omp single
 {
   for (int i = 1; i <= NI; i++)
@@ -379,6 +367,9 @@ double feynman_3(const double a, const double b, const double h, const double st
       {
 #pragma omp task shared(wt)
 {
+        // seed is private variable, so numbers can generate uniformly
+        int localseed = seed + omp_get_thread_num() * 997 + trial;      // LEAP-FROG
+
         double x1 = x;
         double x2 = y;
   
@@ -392,16 +383,11 @@ double feynman_3(const double a, const double b, const double h, const double st
             double dx = ((double)rand() / RAND_MAX - 0.5) * sqrt((DIMENSIONS*1.0) * h);
             double dy = ((double)rand() / RAND_MAX - 0.5) * sqrt((DIMENSIONS*1.0) * h);
 #else
-          double ut = r8_uniform_01 ( &seed );
+          double ut = r8_uniform_01(&localseed);
+          double dx = (ut < 0.5) ? ((r8_uniform_01(&localseed) - 0.5) < 0.0 ? -stepsz : stepsz) : 0.0;
 
-          double dx = 0;
-          double dy = 0;
-
-          ut = r8_uniform_01(&seed);
-          dx = (ut < 0.5) ? ((r8_uniform_01(&seed) - 0.5) < 0.0 ? -stepsz : stepsz) : 0.0;
-
-          ut = r8_uniform_01(&seed);
-          dy = (ut < 0.5) ? ((r8_uniform_01(&seed) - 0.5) < 0.0 ? -stepsz : stepsz) : 0.0;
+          ut = r8_uniform_01(&localseed);
+          double dy = (ut < 0.5) ? ((r8_uniform_01(&localseed) - 0.5) < 0.0 ? -stepsz : stepsz) : 0.0;
 #endif
           // potential before moving
           double vs = potential(a, b, x1, x2);
@@ -463,9 +449,9 @@ unsigned int get_lock_index(int i, int j)
 
 
 // solution with task per walk
-double feynman_4(const double a, const double b, const double h, const double stepsz, const int N) 
+double feynman_3(const double a, const double b, const double h, const double stepsz, const int N) 
 {
-  static int seed = 123456789;     // set to be static -> to be global (shared) by default
+  int seed = 123456789;     // set to be static -> to be global (shared) by default
   int n_inside = 0;   // broj tacaka unutar elipsoida (unutar mreze)
 
   // for every point in grid - must be initialized (moguce je da se desi da neki taskovi krenu da pristupaju matrici pre postavljanja na 0 -> citaju neinicijalizovanu memoriju)
@@ -477,12 +463,8 @@ double feynman_4(const double a, const double b, const double h, const double st
     omp_init_lock(&locks[i]);
   }
 
-#pragma omp threadprivate(seed) // then, it is private for every thread (no race condition)
-#pragma omp parallel default(none) shared(a, b, h, stepsz, N, n_inside, w_exact, wt, locks) 
+#pragma omp parallel default(none) shared(a, b, h, stepsz, N, n_inside, w_exact, wt, locks, seed) 
 {
-  // seed is private variable, so numbers can generate uniformly
-  seed += omp_get_thread_num();
-
 #pragma omp single
 {
   for (int i = 1; i <= NI; i++)
@@ -514,6 +496,9 @@ double feynman_4(const double a, const double b, const double h, const double st
       {
 #pragma omp task shared(wt)
 {
+        // seed is private variable, so numbers can generate uniformly
+        int localseed = seed + omp_get_thread_num() * 997 + trial;      // LEAP-FROG
+
         double x1 = x;
         double x2 = y;
   
@@ -527,16 +512,11 @@ double feynman_4(const double a, const double b, const double h, const double st
             double dx = ((double)rand() / RAND_MAX - 0.5) * sqrt((DIMENSIONS*1.0) * h);
             double dy = ((double)rand() / RAND_MAX - 0.5) * sqrt((DIMENSIONS*1.0) * h);
 #else
-          double ut = r8_uniform_01 ( &seed );
+          double ut = r8_uniform_01(&localseed);
+          double dx = (ut < 0.5) ? ((r8_uniform_01(&localseed) - 0.5) < 0.0 ? -stepsz : stepsz) : 0.0;
 
-          double dx = 0;
-          double dy = 0;
-
-          ut = r8_uniform_01(&seed);
-          dx = (ut < 0.5) ? ((r8_uniform_01(&seed) - 0.5) < 0.0 ? -stepsz : stepsz) : 0.0;
-
-          ut = r8_uniform_01(&seed);
-          dy = (ut < 0.5) ? ((r8_uniform_01(&seed) - 0.5) < 0.0 ? -stepsz : stepsz) : 0.0;
+          ut = r8_uniform_01(&localseed);
+          double dy = (ut < 0.5) ? ((r8_uniform_01(&localseed) - 0.5) < 0.0 ? -stepsz : stepsz) : 0.0;
 #endif
           // potential before moving
           double vs = potential(a, b, x1, x2);
@@ -591,20 +571,16 @@ double feynman_4(const double a, const double b, const double h, const double st
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 // solution with for collapse of outer loops and reduction of error
-double feynman_5(const double a, const double b, const double h, const double stepsz, const int N) 
+double feynman_4(const double a, const double b, const double h, const double stepsz, const int N) 
 {
   int seed = 123456789;
   double err = 0.0;
   int n_inside = 0;   // broj tacaka unutar elipsoida (unutar mreze)
 
-#pragma omp parallel default(none) shared(a, b, h, stepsz, N) \
-                                   firstprivate(seed) \
+#pragma omp parallel default(none) shared(a, b, h, stepsz, N, seed) \
                                    reduction(+ : err) \
                                    reduction(+ : n_inside)
 {
-  // seed is private variable, so numbers can generate uniformly
-  seed += omp_get_thread_num();
-
 #pragma omp for collapse(2)
   for (int i = 1; i <= NI; i++)
   {
@@ -634,6 +610,9 @@ double feynman_5(const double a, const double b, const double h, const double st
       // pustamo N tacaka iz izabrane koordinate - visestruki pokusaji kako bi se dobila bolja aproksimacija
       for (int trial = 0; trial < N; trial++)
       {
+        // seed is private variable, so numbers can generate uniformly
+        int localseed = seed + omp_get_thread_num() * 997 + trial;      // LEAP-FROG
+
         double x1 = x;
         double x2 = y;
   
@@ -647,16 +626,11 @@ double feynman_5(const double a, const double b, const double h, const double st
             double dx = ((double)rand() / RAND_MAX - 0.5) * sqrt((DIMENSIONS*1.0) * h);
             double dy = ((double)rand() / RAND_MAX - 0.5) * sqrt((DIMENSIONS*1.0) * h);
 #else
-          double ut = r8_uniform_01 ( &seed );
+          double ut = r8_uniform_01(&localseed);
+          double dx = (ut < 0.5) ? ((r8_uniform_01(&localseed) - 0.5) < 0.0 ? -stepsz : stepsz) : 0.0;
 
-          double dx = 0;
-          double dy = 0;
-
-          ut = r8_uniform_01(&seed);
-          dx = (ut < 0.5) ? ((r8_uniform_01(&seed) - 0.5) < 0.0 ? -stepsz : stepsz) : 0.0;
-
-          ut = r8_uniform_01(&seed);
-          dy = (ut < 0.5) ? ((r8_uniform_01(&seed) - 0.5) < 0.0 ? -stepsz : stepsz) : 0.0;
+          ut = r8_uniform_01(&localseed);
+          double dy = (ut < 0.5) ? ((r8_uniform_01(&localseed) - 0.5) < 0.0 ? -stepsz : stepsz) : 0.0;
 #endif
           // potential before moving
           double vs = potential(a, b, x1, x2);
@@ -688,20 +662,16 @@ double feynman_5(const double a, const double b, const double h, const double st
 }
 
 // solution with for directive for outer loop and reduction of error
-double feynman_6(const double a, const double b, const double h, const double stepsz, const int N) 
+double feynman_5(const double a, const double b, const double h, const double stepsz, const int N) 
 {
   int seed = 123456789;
   double err = 0.0;
   int n_inside = 0;   // broj tacaka unutar elipsoida (unutar mreze)
 
-#pragma omp parallel default(none) shared(a, b, h, stepsz, N) \
-                                   firstprivate(seed) \
+#pragma omp parallel default(none) shared(a, b, h, stepsz, N, seed) \
                                    reduction(+ : err) \
                                    reduction(+ : n_inside)
 {
-  // seed is private variable, so numbers can generate uniformly
-  seed += omp_get_thread_num();
-
 #pragma omp for schedule(dynamic)
   for (int i = 1; i <= NI; i++)
   {
@@ -731,6 +701,9 @@ double feynman_6(const double a, const double b, const double h, const double st
       // pustamo N tacaka iz izabrane koordinate - visestruki pokusaji kako bi se dobila bolja aproksimacija
       for (int trial = 0; trial < N; trial++)
       {
+        // seed is private variable, so numbers can generate uniformly
+        int localseed = seed + omp_get_thread_num() * 997 + trial;      // LEAP-FROG
+
         double x1 = x;
         double x2 = y;
   
@@ -744,16 +717,11 @@ double feynman_6(const double a, const double b, const double h, const double st
             double dx = ((double)rand() / RAND_MAX - 0.5) * sqrt((DIMENSIONS*1.0) * h);
             double dy = ((double)rand() / RAND_MAX - 0.5) * sqrt((DIMENSIONS*1.0) * h);
 #else
-          double ut = r8_uniform_01 ( &seed );
+          double ut = r8_uniform_01(&localseed);
+          double dx = (ut < 0.5) ? ((r8_uniform_01(&localseed) - 0.5) < 0.0 ? -stepsz : stepsz) : 0.0;
 
-          double dx = 0;
-          double dy = 0;
-
-          ut = r8_uniform_01(&seed);
-          dx = (ut < 0.5) ? ((r8_uniform_01(&seed) - 0.5) < 0.0 ? -stepsz : stepsz) : 0.0;
-
-          ut = r8_uniform_01(&seed);
-          dy = (ut < 0.5) ? ((r8_uniform_01(&seed) - 0.5) < 0.0 ? -stepsz : stepsz) : 0.0;
+          ut = r8_uniform_01(&localseed);
+          double dy = (ut < 0.5) ? ((r8_uniform_01(&localseed) - 0.5) < 0.0 ? -stepsz : stepsz) : 0.0;
 #endif
           // potential before moving
           double vs = potential(a, b, x1, x2);

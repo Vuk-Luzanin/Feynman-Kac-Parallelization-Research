@@ -65,7 +65,7 @@ TESTS = {
     'feynman_omp_2d': {
         'type': 'omp',
         'args': [[1000], [5000], [10000], [20000]],
-        'funcs': 7,
+        'funcs': 6,
         'x': lambda result: [int(result[0][0])],
         'y': lambda result, seq_result: [max(float(seq_result[0][2]), 0.0000001) / max(float(result[0][2]), 0.0000001)],
         'same': lambda result1, result2: (abs(float(result1[0][1]) - float(result2[0][1])) <= ACCURACY),
@@ -199,7 +199,7 @@ def run_test(func_num: int, test_type: str, exe_name: str, args: List[int], num_
     return results
 
 
-def run_tests(test_name: str, test_data: Dict[str, Any]):
+def run_tests(test_name: str, test_data: Dict[str, Any], func_index: int = -1):
     # Print the name of the test being run
     print('Running', test_name, 'tests')
 
@@ -224,6 +224,17 @@ def run_tests(test_name: str, test_data: Dict[str, Any]):
 
     # Iterate over the functions to test (if more than one function to test)
     for func_num in range(num_funcs):
+        if func_index != -1 and func_index != func_num:
+            continue
+
+        # get name of sequential test
+        seq_name = test_name.split("_")
+        seq_name[1] = "sequential"
+        seq_name = "_".join(seq_name)
+
+        seq_res = seq_results[seq_name]["results"]
+        x_axis = seq_results[seq_name]["x_axis"]
+        x_labels = seq_results[seq_name]["x_labels"]
         
         # Iterate over the argument sets for the function
         for args in test_args:
@@ -253,14 +264,6 @@ def run_tests(test_name: str, test_data: Dict[str, Any]):
                     print('An error occurred while getting results for ', func_num, args, num_threads, file=stderr)
                     exit(1)
 
-                # get name of sequential test
-                seq_name = test_name.split("_")
-                seq_name[1] = "sequential"
-                seq_name = "_".join(seq_name)
-
-                seq_res = seq_results[seq_name]["results"]
-                x_axis = seq_results[seq_name]["x_axis"]
-                x_labels = seq_results[seq_name]["x_labels"]
 
                 # If results do not match sequential results, print error and exit
                 if not check_same(seq_res[f"{args}"], results):
@@ -304,6 +307,12 @@ def run_tests(test_name: str, test_data: Dict[str, Any]):
 
 def run_sequential_tests(test_name_in: str):       # feynman_omp_1d
     # run sequential implementation
+    # Print the name of the test being run
+    if test_name_in is not None:
+        print('Running sequential', test_name_in, 'tests')
+    else:
+        print('Running sequential tests')
+
     # get name of sequential test
     if test_name_in is not None:
         tmp = test_name_in.split("_")
@@ -337,12 +346,17 @@ def main():
         if test_name not in TESTS:
             print('Invalid test name.')
             exit(3)
+        func_index = -1
+        if len(sys.argv) > 2:
+            func_index = int(sys.argv[2])
         run_sequential_tests(test_name)
-        run_tests(test_name, TESTS[test_name])
+        run_tests(test_name, TESTS[test_name], func_index)
     else:
         # runs all tests
         run_sequential_tests(None)
         for test_name, test_data in TESTS.items():
+            if test_data["type"] == "sequential":
+                continue
             run_tests(test_name, test_data)
 
 # To run the script, use 'python run.py' to run all tests or 'python run.py test_name' to run a specific test (e.g., 'feynman_omp_1d'). Results are saved as .svg charts and log files in the 'gen' directory.

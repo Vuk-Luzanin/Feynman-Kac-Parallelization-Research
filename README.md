@@ -11,11 +11,12 @@ Repository focused on research and implementation of parallel algorithms for the
 
 
 ```bash
-python3 run.py <test_name>
+python3 run.py <test_name> <function_name>
 ```
 
 Where <test_name> is optional (feynman_omp_1d, feynman_omp_2d, feynman_omp_3d, feynman_pthreads_1d, feynman_pthreads_2d, feynman_pthreads_3d). If omitted, all tests will be executed.
 
+<function_name> is also optional - it ranges from 0 to number_of_functions_for specific_test-1
 
 In the `result/` folder, you can find:
 
