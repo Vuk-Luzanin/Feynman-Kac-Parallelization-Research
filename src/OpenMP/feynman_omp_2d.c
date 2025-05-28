@@ -9,9 +9,12 @@
 #define DIMENSIONS  2
 #define NI          6
 #define NJ          11
+// #define NI          51
+// #define NJ          6
 
 static double a = 2.0;
 static double b = 1.0;
+// static double b = 20.0;
 static double h = 0.001;
 
 static double stepsz;
@@ -105,6 +108,7 @@ double feynman_6(const double a, const double b, const double h, const double st
     left++;
 
   }
+  // printf("\ncount = %d\n", cnt);
 
   int seed = 123456789;   
   double err = 0.0;

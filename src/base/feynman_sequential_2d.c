@@ -112,6 +112,7 @@ int main ( int argc, char **argv )
   }
   double a = 2.0;
   double b = 1.0;
+ // double b = 20.0;
   double chk;
   int dim = 2;
   double dx;
@@ -151,13 +152,13 @@ int main ( int argc, char **argv )
 */
   if ( a < b )
   {
-    ni = 6;
-    nj = 1 + i4_ceiling ( b / a ) * ( ni - 1 );
+    nj = 6;
+    ni = 1 + i4_ceiling ( b / a ) * ( nj - 1 );
   }
   else
   {
-    nj = 6;
-    ni = 1 + i4_ceiling ( a / b ) * ( nj - 1 );
+    ni = 6;
+    nj = 1 + i4_ceiling ( a / b ) * ( ni - 1 );
   }
 
   // printf("\nni = %d, nj = %d\n\n", ni, nj);
@@ -170,17 +171,17 @@ int main ( int argc, char **argv )
   printf("TEST: 2d arguments [%d] and sequential\n", N);
   double wtime = omp_get_wtime();
 
-  for ( j = 1; j <= nj; j++ )
+  for ( j = 1; j <= ni; j++ )
   {
-    x = ( ( double ) ( nj - j     ) * ( - a )
+    x = ( ( double ) ( ni - j     ) * ( - a )
         + ( double ) (      j - 1 ) *     a )
-        / ( double ) ( nj     - 1 );
+        / ( double ) ( ni     - 1 );
 
-    for ( i = 1; i <= ni; i++ )
+    for ( i = 1; i <= nj; i++ )
     {
-      y = ( ( double ) ( ni - i     ) * ( - b )
+      y = ( ( double ) ( nj - i     ) * ( - b )
           + ( double ) (      i - 1 ) *     b ) 
-          / ( double ) ( ni     - 1 );
+          / ( double ) ( nj     - 1 );
 
       chk = pow ( x / a, 2 ) + pow ( y / b, 2 );
 
