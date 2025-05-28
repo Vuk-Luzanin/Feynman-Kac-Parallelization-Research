@@ -47,19 +47,10 @@ inline double r8_uniform_01(int *seed)
   return r;
 }
 
-typedef struct
-{
-  int first;
-  int second;
-} int_pair;
-
 // solution with spiral matrix traversal
 double feynman_6(const double a, const double b, const double h, const double stepsz, const int N) 
 {
-  // mat[n] -> n-ta tacka
-  // mat[n][0] -> x kordinata
-  // mat[n][1] -> y kordinata
-  double mat[NI * NJ][2];
+  int mat[NI * NJ][2];
 
   int left = 1, right = NJ + 1;
   int top = 1, bottom = NI + 1;
@@ -70,8 +61,8 @@ double feynman_6(const double a, const double b, const double h, const double st
     // left to right
     for (int i = left; i < right; i++)
     {
-      mat[cnt][0] = ((double)(NI - top) * (-a) + (double)(top - 1) * a) / (double)(NI - 1);
-      mat[cnt][1] = ((double)(NJ - i) * (-b) + (double)(i - 1) * b) / (double)(NJ - 1);
+      mat[cnt][0] = top;
+      mat[cnt][1] = i;
       cnt++;
     }
     top++;
@@ -79,8 +70,8 @@ double feynman_6(const double a, const double b, const double h, const double st
     // top to bottom
     for (int i = top; i < bottom; i++)
     {
-      mat[cnt][0] = ((double)(NI - i) * (-a) + (double)(i - 1) * a) / (double)(NI - 1);
-      mat[cnt][1] = ((double)(NJ - right - 1) * (-b) + (double)(right - 2) * b) / (double)(NJ - 1);
+      mat[cnt][0] = i;
+      mat[cnt][1] = right - 1;
       cnt++;
     }
     right--;
@@ -92,8 +83,8 @@ double feynman_6(const double a, const double b, const double h, const double st
     // right to left
     for (int i = right - 1; i >= left; i--)
     {
-      mat[cnt][0] = ((double)(NI - bottom - 1) * (-a) + (double)(bottom - 2) * a) / (double)(NI - 1);
-      mat[cnt][1] = ((double)(NJ - i) * (-b) + (double)(i - 1) * b) / (double)(NJ - 1);
+      mat[cnt][0] = bottom - 1;
+      mat[cnt][1] = i;
       cnt++;
     }
     bottom--;
@@ -101,26 +92,25 @@ double feynman_6(const double a, const double b, const double h, const double st
     //bottom to top
     for (int i = bottom - 1; i >= top; i--)
     {
-      mat[cnt][0] = ((double)(NI - i) * (-a) + (double)(i - 1) * a) / (double)(NI - 1);
-      mat[cnt][1] = ((double)(NJ - left) * (-b) + (double)(left - 1) * b) / (double)(NJ - 1);
+      mat[cnt][0] = i;
+      mat[cnt][1] = left;
       cnt++;
     }
     left++;
 
   }
-  // printf("\ncount = %d\n", cnt);
 
   int seed = 123456789;   
   double err = 0.0;
   int n_inside = 0; 
 
-
 #pragma omp parallel for schedule(guided) \
                          reduction(+:err, n_inside)
   for (int i = 0; i < NI*NJ; i++)
   {
-    double x = mat[i][0];
-    double y = mat[i][1];
+    double x = ((double)(NI - mat[i][0]) * (-a) + (double)(mat[i][0] - 1) * a) / (double)(NI - 1);
+    double y = ((double)(NJ - mat[i][1]) * (-b) + (double)(mat[i][1] - 1) * b) / (double)(NJ - 1);
+
     double chk = pow(x / a, 2) + pow(y / b, 2);
 
     if ( 1.0 < chk )
@@ -182,7 +172,6 @@ double feynman_6(const double a, const double b, const double h, const double st
 
   return err = sqrt ( err / ( double ) ( n_inside ) );
 }
-
 
 double feynman_0(const double a, const double b, const double h, const double stepsz, const int N) 
 {
