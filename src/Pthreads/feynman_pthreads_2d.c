@@ -6,7 +6,7 @@
 #include <omp.h>  // used only for time measurement and passing number of threads -> to uniform the run.py script
 #include "util.h"
 
-#define NUM_LOCKS   256
+#define NUM_LOCKS   512
 #define DIMENSIONS  2
 #define NI          11
 #define NJ          6

@@ -5,7 +5,7 @@
 #include <omp.h>
 #include "util.h"
 
-#define NUM_LOCKS   256
+#define NUM_LOCKS   512
 #define DIMENSIONS  2
 #define NI          6
 #define NJ          11
@@ -182,7 +182,6 @@ double feynman_6(const double a, const double b, const double h, const double st
 
   return err = sqrt ( err / ( double ) ( n_inside ) );
 }
-
 
 
 double feynman_0(const double a, const double b, const double h, const double stepsz, const int N) 
@@ -446,7 +445,7 @@ double feynman_2(const double a, const double b, const double h, const double st
   }
 } // single
 } // parallel
-  // na kraju obracunati gresku po svim osama - u matrici wt
+  // na kraju izracunati gresku po svim osama - u matrici wt
   double err = 0.0;
   for (int i = 0; i <= NI; ++i)
   {
@@ -463,7 +462,6 @@ double feynman_2(const double a, const double b, const double h, const double st
   // root-mean-square (RMS) error
   return sqrt(err / (double)(n_inside));
 }
-
 
 
 
@@ -568,6 +566,8 @@ double feynman_3(const double a, const double b, const double h, const double st
         }
 
         // koriscenje lock-a
+        // sigurno jer svaki task simulira jedno kretanje iz tacke, pa ce se svi taskovi za 1 tacku (isti i, j) sinhronizovati nad istom bravom u nizu locks
+        // 
         int lock_id = get_lock_index(i, j);    // izracunaj index lock-a koji je potreban
         omp_set_lock(&locks[lock_id]);
         wt[i][j] += w;

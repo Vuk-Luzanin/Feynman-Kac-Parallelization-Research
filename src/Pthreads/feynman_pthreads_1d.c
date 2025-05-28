@@ -138,6 +138,7 @@ double feynman_pthreads(const double a, const int N) {
     for (int i = 1; i <= NI; ++i) {
         // double x = ((double)(NI - i) * (-a) + (double)(i - 1) * a) / (double)(NI - 1);
 
+        // uzima indekse od krajeva ka pocetku
         int alt_i = (i % 2 == 1) ? (i - 1) / 2 + 1 : NI - (i / 2) + 1;
         double x = ((double)(NI - alt_i) * (-a) + (double)(alt_i - 1) * a) / (double)(NI - 1);
 
@@ -146,7 +147,7 @@ double feynman_pthreads(const double a, const int N) {
         w_exact[i] = 0.0;
         wt[i] = 0.0;
 
-        if (chk >= 1.0) continue;
+        if (chk > 1.0) continue;
 
         w_exact[i] = exp(r * r - 1.0);
 
