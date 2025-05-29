@@ -9,12 +9,12 @@
 #define DIMENSIONS  2
 #define NI          6
 #define NJ          11
-// #define NI          51
+// #define NI          126
 // #define NJ          6
 
 static double a = 2.0;
 static double b = 1.0;
-// static double b = 20.0;
+// static double b = 50.0;
 static double h = 0.001;
 
 static double stepsz;
@@ -24,6 +24,20 @@ inline double potential ( double a, double b, double x, double y )
 {
   double value; 
   value = 2.0 * ( pow ( x / a / a, 2 ) + pow ( y / b / b, 2 ) ) + 1.0 / a / a + 1.0 / b / b;
+
+  return value;
+}
+
+int i4_ceiling ( double x )
+{
+  int value;
+
+  value = ( int ) x;
+
+  if ( value < x )
+  {
+    value = value + 1;
+  }
 
   return value;
 }
@@ -775,7 +789,7 @@ double feynman_5(const double a, const double b, const double h, const double st
 }
 
 
-double (*FUNCS[])(const double, const double, const double, const double, const int) = {feynman_0, feynman_1, feynman_2, feynman_3, feynman_4, feynman_5, feynman_6, feynman_7};
+double (*FUNCS[])(const double, const double, const double, const double, const int) = {feynman_0, feynman_1, feynman_2, feynman_3, feynman_4, feynman_5, feynman_6};
 
 int main ( int argc, char **argv )
 {
@@ -793,6 +807,17 @@ int main ( int argc, char **argv )
 
   stepsz = sqrt(DIMENSIONS * h);
 
+  // if ( a < b )
+  // {
+  //   nj = 6;
+  //   ni = 1 + i4_ceiling ( b / a ) * ( nj - 1 );
+  // }
+  // else
+  // {
+  //   ni = 6;
+  //   nj = 1 + i4_ceiling ( a / b ) * ( ni - 1 );
+  // }
+
   printf("TEST: func=%d, N=%d, num_threads=%ld\n", func, N, get_num_threads());
   double wtime = omp_get_wtime();
   double err = FUNCS[func](a, b, h, stepsz, N);
@@ -802,97 +827,3 @@ int main ( int argc, char **argv )
 
   return 0;
 }
-
-
-
-
-/******************************************************************************/
-/*
-  Purpose:
-
-    MAIN is the main program for FEYNMAN_KAC_2D.
-
-  Discussion:
-
-    This program is derived from section 2.5, exercise 2.2 of Petersen and Arbenz.
-
-    The problem is to determine the solution U(X,Y) of the following 
-    partial differential equation:
-
-      (1/2) Laplacian U - V(X,Y) * U = 0,
-
-    inside the elliptic domain D:
- 
-      D = { (X,Y) | (X/A)^2+(Y/B)^2 <= 1 }
-   
-    with the boundary condition U(boundary(D)) = 1.
-
-    The V(X,Y) is the potential function:
-
-      V = 2 * ( (X/A^2)^2 + (Y/B^2)^2 ) + 1/A^2 + 1/B^2.
-
-    The analytic solution of this problem is already known:
-
-      U(X,Y) = exp ( (X/A)^2 + (Y/B)^2 - 1 ).
-
-    Our method is via the Feynman-Kac Formula.
-
-    The idea is to start from any (x,y) in D, and
-    compute (x+Wx(t),y+Wy(t)) where 2D Brownian motion
-    (Wx,Wy) is updated each step by sqrt(h)*(z1,z2),
-    each z1,z2 are independent approximately Gaussian 
-    random variables with zero mean and variance 1. 
-
-    Each (x1(t),x2(t)) is advanced until (x1,x2) exits 
-    the domain D.  
-
-    Upon its first exit from D, the sample path (x1,x2) is stopped and a 
-    new sample path at (x,y) is started until N such paths are completed.
- 
-    The Feynman-Kac formula gives the solution here as
-
-      U(X,Y) = (1/N) sum(1 <= I <= N) Y(tau_i),
-
-    where
-
-      Y(tau) = exp( -int(s=0..tau) v(x1(s),x2(s)) ds),
-
-    and tau = first exit time for path (x1,x2). 
-
-    The integration procedure is a second order weak accurate method:
-
-      X(t+h)  = [ x1(t) + sqrt ( h ) * z1 ]
-                [ x2(t) + sqrt ( h ) * z2 ]
-
-    Here Z1, Z2 are approximately normal univariate Gaussians. 
-
-    An Euler predictor approximates Y at the end of the step
-
-      Y_e     = (1 - h*v(X(t)) * Y(t), 
-
-    A trapezoidal rule completes the step:
-
-      Y(t+h)  = Y(t) - (h/2)*[v(X(t+h))*Y_e + v(X(t))*Y(t)].
-
-  Licensing:
-
-    This code is distributed under the MIT license. 
-
-  Modified:
-
-    31 May 2012
-
-  Author:
-
-    Original C 3D version by Wesley Petersen.
-    C 2D version by John Burkardt.
-
-  Reference:
-
-    Peter Arbenz, Wesley Petersen,
-    Introduction to Parallel Computing:
-    A Practical Guide with Examples in C,
-    Oxford, 2004,
-    ISBN: 0-19-851577-4,
-    LC: QA76.59.P47.
-*/

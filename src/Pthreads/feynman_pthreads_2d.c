@@ -8,8 +8,8 @@
 
 #define NUM_LOCKS   512
 #define DIMENSIONS  2
-#define NI          11
-#define NJ          6
+#define NI          6
+#define NJ          11
 
 int num_threads = 8;
 
@@ -37,6 +37,20 @@ double potential ( double a, double b, double x, double y )
 {
   double value;
   value = 2.0 * ( pow ( x / a / a, 2 ) + pow ( y / b / b, 2 ) ) + 1.0 / a / a + 1.0 / b / b;
+
+  return value;
+}
+
+int i4_ceiling ( double x )
+{
+  int value;
+
+  value = ( int ) x;
+
+  if ( value < x )
+  {
+    value = value + 1;
+  }
 
   return value;
 }

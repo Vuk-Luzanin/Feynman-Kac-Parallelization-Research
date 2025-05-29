@@ -8,6 +8,7 @@ from os.path import dirname, realpath, join
 from sys import argv, exit, stderr
 from matplotlib import pyplot as plt
 import numpy as np
+import time
 
 SCRIPT_DIR = dirname(realpath(__file__))
 BUILD_DIR = join(SCRIPT_DIR, 'result')
@@ -65,7 +66,7 @@ TESTS = {
     'feynman_omp_2d': {
         'type': 'omp',
         'args': [[1000], [5000], [10000], [20000]],
-        'funcs': 8,
+        'funcs': 7,
         'x': lambda result: [int(result[0][0])],
         'y': lambda result, seq_result: [max(float(seq_result[0][2]), 0.0000001) / max(float(result[0][2]), 0.0000001)],
         'same': lambda result1, result2: (abs(float(result1[0][1]) - float(result2[0][1])) <= ACCURACY),
@@ -227,6 +228,9 @@ def run_tests(test_name: str, test_data: Dict[str, Any], func_index: int = -1):
         if func_index != -1 and func_index != func_num:
             continue
 
+        # give OS time to do his stuff
+        time.sleep(5)
+
         # get name of sequential test
         seq_name = test_name.split("_")
         seq_name[1] = "sequential"
@@ -238,6 +242,9 @@ def run_tests(test_name: str, test_data: Dict[str, Any], func_index: int = -1):
         
         # Iterate over the argument sets for the function
         for args in test_args:
+
+            # give OS time to do his stuff  
+            time.sleep(5)
             
             # Set up the plot figure size - sirina 15 i visina 6 inca
             plt.figure(figsize=(15, 6))

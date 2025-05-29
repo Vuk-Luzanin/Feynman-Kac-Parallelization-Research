@@ -112,7 +112,7 @@ int main ( int argc, char **argv )
   }
   double a = 2.0;
   double b = 1.0;
- // double b = 20.0;
+//  double b = 50.0;
   double chk;
   int dim = 2;
   double dx;
