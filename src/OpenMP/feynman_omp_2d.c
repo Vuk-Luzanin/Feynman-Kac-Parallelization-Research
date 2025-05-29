@@ -775,7 +775,7 @@ double feynman_5(const double a, const double b, const double h, const double st
 }
 
 
-double (*FUNCS[])(const double, const double, const double, const double, const int) = {feynman_0, feynman_1, feynman_2, feynman_3, feynman_4, feynman_5, feynman_6};
+double (*FUNCS[])(const double, const double, const double, const double, const int) = {feynman_0, feynman_1, feynman_2, feynman_3, feynman_4, feynman_5, feynman_6, feynman_7};
 
 int main ( int argc, char **argv )
 {
