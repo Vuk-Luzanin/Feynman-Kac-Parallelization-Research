@@ -28,7 +28,7 @@ inline double potential ( double a, double b, double x, double y )
   return value;
 }
 
-int i4_ceiling ( double x )
+inline int i4_ceiling ( double x )
 {
   int value;
 
@@ -807,15 +807,15 @@ int main ( int argc, char **argv )
 
   stepsz = sqrt(DIMENSIONS * h);
 
-  // if ( a < b )
+  // if (a < b)
   // {
-  //   nj = 6;
-  //   ni = 1 + i4_ceiling ( b / a ) * ( nj - 1 );
+  //   NJ = 6;
+  //   NI = 1 + i4_ceiling (b / a) * (NJ - 1);
   // }
   // else
   // {
-  //   ni = 6;
-  //   nj = 1 + i4_ceiling ( a / b ) * ( ni - 1 );
+  //   NI = 6;
+  //   NJ = 1 + i4_ceiling (a / b) * (NI - 1);
   // }
 
   printf("TEST: func=%d, N=%d, num_threads=%ld\n", func, N, get_num_threads());

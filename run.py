@@ -255,6 +255,8 @@ def run_tests(test_name: str, test_data: Dict[str, Any], func_index: int = -1):
                     continue
 
                 print('Running test with function', func_num, 'arguments', args, 'and', num_threads, 'threads')
+                
+                time.sleep(2)
 
                 # If running with the first number of threads, get sequential results
                 # if num_threads == threads[0]:
@@ -274,7 +276,7 @@ def run_tests(test_name: str, test_data: Dict[str, Any], func_index: int = -1):
 
                 # If results do not match sequential results, print error and exit
                 if not check_same(seq_res[f"{args}"], results):
-                    print('Results mismatch for ', func_num, args, num_threads, seq_res[f"{args}"], results, file=stderr)
+                    print('Results mismatch for function ', func_num, args, num_threads, seq_res[f"{args}"], results, file=stderr)
                     print('Test FAILED')
                     exit(2)
 
