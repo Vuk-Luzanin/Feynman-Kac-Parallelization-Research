@@ -7,10 +7,6 @@
 
 #define NUM_LOCKS   512
 #define DIMENSIONS  2
-// #define NI          6
-// #define NJ          11
-// #define NI          126
-// #define NJ          6
 
 static double a = 2.0;
 static double b = 1.0;
@@ -373,8 +369,8 @@ double feynman_2(const double a, const double b, const double h, const double st
   int n_inside = 0;   // broj tacaka unutar elipsoida (unutar mreze)
 
   // for every point in grid - must be initialized (moguce je da se desi da neki taskovi krenu da pristupaju matrici pre postavljanja na 0 -> citaju neinicijalizovanu memoriju)
-  double w_exact[NI+1][NJ+1];
-  double wt[NI+1][NJ+1];
+  double* w_exact = calloc((NI+1) * (NJ+1), sizeof(double));
+  double* wt = calloc((NI+1) * (NJ+1), sizeof(double));
 
 #pragma omp parallel default(none) shared(a, b, h, stepsz, N, n_inside, w_exact, wt, seed, NI, NJ) 
 {
@@ -389,8 +385,8 @@ double feynman_2(const double a, const double b, const double h, const double st
       double y = ((double)(NJ - j) * (-b) + (double)(j - 1) * b) / (double)(NJ - 1);
       double chk = pow(x / a, 2) + pow(y / b, 2);
 
-      w_exact[i][j] = 0.0;
-      wt[i][j] = 0.0;
+      w_exact[i * (NJ+1) + j] = 0.0;
+      wt[i * (NJ+1) + j] = 0.0;
 
       if ( 1.0 < chk )
       {
@@ -402,7 +398,7 @@ double feynman_2(const double a, const double b, const double h, const double st
       n_inside++;
  
       // analitička vrednost funkcije gustine/potencijala u tački unutar elipsoida - referentna vrednost koju poredimo u odnosu na numericku - wt
-      w_exact[i][j] = exp(pow(x / a, 2) + pow(y / b, 2) - 1.0);
+      w_exact[i * (NJ+1) + j] = exp(pow(x / a, 2) + pow(y / b, 2) - 1.0);
 
       // pustamo N tacaka iz izabrane koordinate - visestruki pokusaji kako bi se dobila bolja aproksimacija
       for (int trial = 0; trial < N; trial++)
@@ -448,7 +444,7 @@ double feynman_2(const double a, const double b, const double h, const double st
         }
 // jer se menja u kontekstu vise taskova
 #pragma omp atomic
-        wt[i][j] += w;
+        wt[i * (NJ+1) + j] += w;
 } // task
       }
     }
@@ -461,12 +457,12 @@ double feynman_2(const double a, const double b, const double h, const double st
   {
     for (int j = 0; j <= NJ; ++j)
     { 
-      if (w_exact[i][j] == 0.0)
+      if (w_exact[i * (NJ+1) + j] == 0.0)
       {
         // kada tacka nije unutar elipsoida
         continue;
       }
-      err += pow(w_exact[i][j] - (wt[i][j] / (double)(N)), 2);
+      err += pow(w_exact[i * (NJ+1) + j] - (wt[i * (NJ+1) + j] / (double)(N)), 2);
     }
   }
   // root-mean-square (RMS) error
@@ -496,8 +492,8 @@ double feynman_3(const double a, const double b, const double h, const double st
   int n_inside = 0;   // broj tacaka unutar elipsoida (unutar mreze)
 
   // for every point in grid - must be initialized (moguce je da se desi da neki taskovi krenu da pristupaju matrici pre postavljanja na 0 -> citaju neinicijalizovanu memoriju)
-  double w_exact[NI+1][NJ+1];
-  double wt[NI+1][NJ+1];
+  double* w_exact = calloc((NI+1) * (NJ+1), sizeof(double));
+  double* wt = calloc((NI+1) * (NJ+1), sizeof(double));
 
   for (int i = 0; i < NUM_LOCKS; i++) 
   {
@@ -517,8 +513,8 @@ double feynman_3(const double a, const double b, const double h, const double st
       double y = ((double)(NJ - j) * (-b) + (double)(j - 1) * b) / (double)(NJ - 1);
       double chk = pow(x / a, 2) + pow(y / b, 2);
 
-      w_exact[i][j] = 0.0;
-      wt[i][j] = 0.0;
+      w_exact[i * (NJ+1) + j] = 0.0;
+      wt[i * (NJ+1) + j] = 0.0;
 
       if ( 1.0 < chk )
       {
@@ -530,7 +526,7 @@ double feynman_3(const double a, const double b, const double h, const double st
       n_inside++;
  
       // analitička vrednost funkcije gustine/potencijala u tački unutar elipsoida - referentna vrednost koju poredimo u odnosu na numericku - wt
-      w_exact[i][j] = exp(pow(x / a, 2) + pow(y / b, 2) - 1.0);
+      w_exact[i * (NJ+1) + j] = exp(pow(x / a, 2) + pow(y / b, 2) - 1.0);
 
       // pustamo N tacaka iz izabrane koordinate - visestruki pokusaji kako bi se dobila bolja aproksimacija
       for (int trial = 0; trial < N; trial++)
@@ -580,7 +576,7 @@ double feynman_3(const double a, const double b, const double h, const double st
         // 
         int lock_id = get_lock_index(i, j);    // izracunaj index lock-a koji je potreban
         omp_set_lock(&locks[lock_id]);
-        wt[i][j] += w;
+        wt[i * (NJ+1) + j] += w;
         omp_unset_lock(&locks[lock_id]);
 } // task
       }
@@ -594,12 +590,12 @@ double feynman_3(const double a, const double b, const double h, const double st
   {
     for (int j = 0; j <= NJ; ++j)
     { 
-      if (w_exact[i][j] == 0.0)
+      if (w_exact[i * (NJ+1) + j] == 0.0)
       {
         // kada tacka nije unutar elipsoida
         continue;
       }
-      err += pow(w_exact[i][j] - (wt[i][j] / (double)(N)), 2);
+      err += pow(w_exact[i * (NJ+1) + j] - (wt[i * (NJ+1) + j] / (double)(N)), 2);
     }
   }
   // oslobađanje brava
