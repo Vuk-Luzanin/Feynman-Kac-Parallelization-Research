@@ -16,6 +16,7 @@ ACCURACY = 0.01
 
 Result = List[List[str]]
 
+
 def run_make():
     try:
         # runs make command
@@ -28,104 +29,85 @@ def run_make():
         print("Make command not found. Please ensure that 'make' is installed.", file=sys.stderr)
         sys.exit(1)
 
-# IMPORTANT: Testove nazivati u formatu feynman_{tehnologija}_{DIMENSION}D
+def get_x_N(result):
+    return [int(result[0][0])]
+
+def get_y_SPEEDUP(result, seq_result):
+    return [max(float(seq_result[0][2]), 0.0000001) / max(float(result[0][2]), 0.0000001)]
+
+def get_same(result1, result2):
+    return abs(float(result1[0][1]) - float(result2[0][1])) <= ACCURACY
+
+
+# IMPORTANT: Testove nazivati u formatu feynman_{tehnologija}_{DIMENSION}d
 TESTS = {
     'feynman_sequential_1d': {
         'type': 'sequential',
-        'args': [[1000], [5000], [10000], [20000]],
-        'x': lambda result: [int(result[0][0])],
-        'y': lambda result, seq_result: [max(float(seq_result[0][2]), 0.0000001) / max(float(result[0][2]), 0.0000001)],
-        'same': lambda result1, result2: (abs(float(result1[0][1]) - float(result2[0][1])) <= ACCURACY),
+        'args_N': [[1000], [5000], [10000], [20000]],
+        'results' : {},              # key (args) : value (results)
+        'x_axis' : [],
         'threads': [1]
-        },
+    },
     'feynman_sequential_2d': {
         'type': 'sequential',
-        'args': [[1000], [5000], [10000], [20000]],
-        'x': lambda result: [int(result[0][0])],
-        'y': lambda result, seq_result: [max(float(seq_result[0][2]), 0.0000001) / max(float(result[0][2]), 0.0000001)],
-        'same': lambda result1, result2: (abs(float(result1[0][1]) - float(result2[0][1])) <= ACCURACY),
+        'args_N': [[1000], [5000], [10000], [20000]],
+        'results' : {},              # key (args) : value (results)
+        'x_axis' : [],
         'threads': [1]
     },
     'feynman_sequential_3d': {
         'type': 'sequential',
-        'args': [[1000], [5000], [10000], [20000]],
-        'x': lambda result: [int(result[0][0])],
-        'y': lambda result, seq_result: [max(float(seq_result[0][2]), 0.0000001) / max(float(result[0][2]), 0.0000001)],
-        'same': lambda result1, result2: (abs(float(result1[0][1]) - float(result2[0][1])) <= ACCURACY),
+        'args_N': [[1000], [5000], [10000], [20000]],
+        'results' : {},              # key (args) : value (results)
+        'x_axis' : [],
         'threads': [1]
     },
     'feynman_omp_1d': {
         'type': 'omp',
-        'args': [[1000], [5000], [10000], [20000]],
+        'args_N': [[1000], [5000], [10000], [20000]],
         'funcs': 5,
-        'x': lambda result: [int(result[0][0])],
-        'y': lambda result, seq_result: [max(float(seq_result[0][2]), 0.0000001) / max(float(result[0][2]), 0.0000001)],
-        'same': lambda result1, result2: (abs(float(result1[0][1]) - float(result2[0][1])) <= ACCURACY),
         'threads': [1, 2, 4, 8, 16]
     },
     'feynman_omp_2d': {
         'type': 'omp',
-        'args': [[1000], [5000], [10000], [20000]],
+        'args_N': [[1000], [5000], [10000], [20000]],
         'funcs': 7,
-        'x': lambda result: [int(result[0][0])],
-        'y': lambda result, seq_result: [max(float(seq_result[0][2]), 0.0000001) / max(float(result[0][2]), 0.0000001)],
-        'same': lambda result1, result2: (abs(float(result1[0][1]) - float(result2[0][1])) <= ACCURACY),
         'threads': [1, 2, 4, 8, 16]
     },
     'feynman_omp_3d': {
         'type': 'omp',
-        'args': [[1000], [5000], [10000], [20000]],
+        'args_N': [[1000], [5000], [10000], [20000]],
         'funcs': 6,
-        'x': lambda result: [int(result[0][0])],
-        'y': lambda result, seq_result: [max(float(seq_result[0][2]), 0.0000001) / max(float(result[0][2]), 0.0000001)],
-        'same': lambda result1, result2: (abs(float(result1[0][1]) - float(result2[0][1])) <= ACCURACY),
         'threads': [1, 2, 4, 8, 16]
     },
     'feynman_pthreads_1d': {
         'type': 'pthreads',
-        'args': [[1000], [5000], [10000], [20000]],
-        'x': lambda result: [int(result[0][0])],
-        'y': lambda result, seq_result: [max(float(seq_result[0][2]), 0.0000001) / max(float(result[0][2]), 0.0000001)],
-        'same': lambda result1, result2: (abs(float(result1[0][1]) - float(result2[0][1])) <= ACCURACY),
+        'args_N': [[1000], [5000], [10000], [20000]],
         'threads': [1, 2, 4, 8, 16]
     },
     'feynman_pthreads_2d': {
         'type': 'pthreads',
-        'args': [[1000], [5000], [10000], [20000]],
-        'x': lambda result: [int(result[0][0])],
-        'y': lambda result, seq_result: [max(float(seq_result[0][2]), 0.0000001) / max(float(result[0][2]), 0.0000001)],
-        'same': lambda result1, result2: (abs(float(result1[0][1]) - float(result2[0][1])) <= ACCURACY),
+        'args_N': [[1000], [5000], [10000], [20000]],
         'threads': [1, 2, 4, 8, 16]
     },
     'feynman_pthreads_3d': {
         'type': 'pthreads',
-        'args': [[1000], [5000], [10000], [20000]],
-        'x': lambda result: [int(result[0][0])],
-        'y': lambda result, seq_result: [max(float(seq_result[0][2]), 0.0000001) / max(float(result[0][2]), 0.0000001)],
-        'same': lambda result1, result2: (abs(float(result1[0][1]) - float(result2[0][1])) <= ACCURACY),
+        'args_N': [[1000], [5000], [10000], [20000]],
         'threads': [1, 2, 4, 8, 16]
     }
 }
 
-WIDTH = 1.0
-
-seq_results = {
-    'feynman_sequential_1d': {
-        'results' : {},              # key (args) : value (results)
-        'x_axis' : {},
-        'x_labels' : {}
-    },            
-    'feynman_sequential_2d': {
-        'results' : {},              # key (args) : value (results)
-        'x_axis' : {},
-        'x_labels' : {}
-    },
-    'feynman_sequential_3d': {
-        'results' : {},              # key (args) : value (results)
-        'x_axis' : {},
-        'x_labels' : {}
-    }
+thread_colors = {
+    2: 'tab:blue',
+    4: 'tab:orange',
+    8: 'tab:green',
+    16: 'tab:red'
 }
+
+
+WIDTH = 2.0
+GROUP_WIDTH = 1.2
+BAR_WIDTH_INDEX = 0.7
 
 # pokrece test i cuva stdout, i pravi log fajlove
 # Defines a function that runs a test executable based on the test type (OpenMP for now)
@@ -208,14 +190,7 @@ def run_tests(test_name: str, test_data: Dict[str, Any], func_index: int = -1):
     num_funcs = test_data['funcs'] if 'funcs' in test_data else 1
     
     # Arguments for the tests (default to empty list if 'args' not specified)
-    test_args = test_data['args'] if 'args' in test_data else [[]]
-
-    # Function to get x-axis labels and y-axis data from the test data
-    get_x_axis = test_data['x']
-    get_y_axis = test_data['y']
-
-    # Function to check if results from different thread counts are the same
-    check_same = test_data['same']  # lambda function
+    test_args = test_data['args_N'] if 'args_N' in test_data else [[]]
 
     # Type of test (e.g., OpenMP)
     test_type = test_data['type']
@@ -229,25 +204,25 @@ def run_tests(test_name: str, test_data: Dict[str, Any], func_index: int = -1):
             continue
 
         # give OS time to do his stuff
-        time.sleep(5)
+        # time.sleep(5)
 
         # get name of sequential test
         seq_name = test_name.split("_")
         seq_name[1] = "sequential"
         seq_name = "_".join(seq_name)
 
-        seq_res = seq_results[seq_name]["results"]
-        x_axis = seq_results[seq_name]["x_axis"]
-        x_labels = seq_results[seq_name]["x_labels"]
-        
+        seq_res = TESTS[seq_name]["results"]
+        x_axis = TESTS[seq_name]["x_axis"]            # [0, 1, 2 ,3]
+
+        # Set up the plot figure size - sirina 15 i visina 6 inca
+        plt.figure(figsize=(15, 7))
+        shown_labels = set()
+
         # Iterate over the argument sets for the function
         for args in test_args:
-
-            # give OS time to do his stuff  
-            time.sleep(5)
             
-            # Set up the plot figure size - sirina 15 i visina 6 inca
-            plt.figure(figsize=(15, 6))
+            # give OS time to do his stuff  
+            # time.sleep(5)
             
             # Iterate over the number of threads for the test
             for num_threads in threads:
@@ -256,14 +231,7 @@ def run_tests(test_name: str, test_data: Dict[str, Any], func_index: int = -1):
 
                 print('Running test with function', func_num, 'arguments', args, 'and', num_threads, 'threads')
                 
-                time.sleep(2)
-
-                # If running with the first number of threads, get sequential results
-                # if num_threads == threads[0]:
-                #     # run same implementation with 1 thread (and take it as a reference)
-                #     seq_results = run_test(func_num, test_type, test_name, args, num_threads)
-                #     x_labels = get_x_axis(seq_results)  # Get x-axis labels from results
-                #     x_axis = np.arange(len(x_labels)) * WIDTH  # Generate x-axis values based on number of labels
+                # time.sleep(2)
                 
                 # Run the test with the current number of threads
                 results = run_test(func_num, test_type, test_name, args, num_threads)
@@ -273,42 +241,53 @@ def run_tests(test_name: str, test_data: Dict[str, Any], func_index: int = -1):
                     print('An error occurred while getting results for ', func_num, args, num_threads, file=stderr)
                     exit(1)
 
-
                 # If results do not match sequential results, print error and exit
-                if not check_same(seq_res[f"{args}"], results):
+                if not get_same(seq_res[f"{args}"], results):
                     print('Results mismatch for function ', func_num, args, num_threads, seq_res[f"{args}"], results, file=stderr)
                     print('Test FAILED')
                     exit(2)
 
                 # Calculate speedups based on sequential and parallel results
-                speedups = get_y_axis(results, seq_res[f"{args}"])
-                
+                speedups = get_y_SPEEDUP(results, seq_res[f"{args}"])      # sta treba da pise na baru
+
                 # Calculate bar width for plotting
-                bar_width = WIDTH / (len(threads) - 1)
-                
+                bar_width_disp = GROUP_WIDTH / (len(threads) - 1)
+                bar_width = BAR_WIDTH_INDEX * GROUP_WIDTH / (len(threads) - 1)
+
                 # Adjust x-axis positions for bars based on thread count
-                x_my = x_axis[f"{args}"] - (WIDTH / 2) + (threads.index(num_threads) - 1) * bar_width + (bar_width / 2)
-                
+                x_my = x_axis[test_args.index(args)] - (GROUP_WIDTH / 2) + (threads.index(num_threads) - 1) * bar_width_disp + (bar_width / 2) + (1 - BAR_WIDTH_INDEX) * bar_width_disp /2
+
                 # Create a bar plot for the current thread count
-                bar = plt.bar(x_my, speedups, label=f'threads={num_threads}', width=bar_width)
-                
+                label = f"threads={num_threads}"
+                color = thread_colors[num_threads]
+
+                if label not in shown_labels:
+                    bar = plt.bar(x_my, speedups, label=label, width=bar_width, color=color)
+                    shown_labels.add(label)
+                else:
+                    bar = plt.bar(x_my, speedups, width=bar_width, color=color)
+
+    
                 # Label the bars with speedup values
                 plt.bar_label(bar, [round(speedup, 1) for speedup in speedups])
             
-            # Set the title, labels, and ticks for the plot
-            plt.title(f'Results for dimension {test_name.split("_")[2][0]} function index {func_num} and arguments {args}')
-            plt.xlabel('$N$')
-            plt.ylabel('Speedup')
-            plt.xticks(x_axis[f"{args}"], x_labels[f"{args}"])
-            plt.legend()
+        # Set the title, labels, and ticks for the plot
+        plt.title(f'Results for dimension {test_name.split("_")[2][0]} function index {func_num}')
+        plt.xlabel('$N$')
+        plt.ylabel('Speedup')
+        plt.grid(axis='y', linestyle='--', alpha=0.2)
+        plt.xticks(x_axis, test_args)
+        plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.08),
+           ncol=len(threads), frameon=False)
 
-            short_name = test_name[:-3]
-            svg_dir = join(BUILD_DIR, short_name)
 
-            # Save the plot as an SVG file
-            svg_filename = f'results-{test_name}-{func_num}-{args}.svg'
-            plt.savefig(join(svg_dir, svg_filename))
-            plt.close()
+        short_name = test_name[:-3]
+        svg_dir = join(BUILD_DIR, short_name)
+
+        # Save the plot as an SVG file
+        svg_filename = f'results-{test_name}-func-{func_num}.svg'
+        plt.savefig(join(svg_dir, svg_filename))
+        plt.close()
     
     # After all tests are run, print that the test has passed
     print('Test PASSED')
@@ -319,35 +298,28 @@ def run_sequential_tests(test_name_in: str):       # feynman_omp_1d
     # Print the name of the test being run
     if test_name_in is not None:
         print('Running sequential', test_name_in, 'tests')
+        tmp = test_name_in.split("_")
+        tmp[1] = "sequential"
+        test_name_in = "_".join(tmp)            # feynman_sequential_1d
     else:
         print('Running sequential tests')
 
-    # get name of sequential test
-    if test_name_in is not None:
-        tmp = test_name_in.split("_")
-        tmp[1] = "sequential"
-        test_name_in = "_".join(tmp)
-
     for test_name, test_data in TESTS.items():
-        if test_data["type"] == "sequential":
-            if test_name_in is not None and test_name != test_name_in:
-                continue
-            get_x_axis = test_data['x']
-            for args in test_data["args"]:
+        if test_data["type"] != "sequential":
+            continue
+        if test_name_in is not None and test_name != test_name_in:
+            continue
 
-                # get name of sequential test
-                seq_name = test_name.split("_")
-                seq_name[1] = "sequential"
-                seq_name = "_".join(seq_name)
+        for args in test_data["args_N"]:
 
-                results = seq_results[seq_name]["results"]
-                x_axis = seq_results[seq_name]["x_axis"]
-                x_labels = seq_results[seq_name]["x_labels"]
+            results = test_data["results"]
 
-                results[f"{args}"] = run_test(0, test_data["type"], test_name, args, 1)
-                x_labels[f"{args}"] = get_x_axis(results[f"{args}"])  # Get x-axis labels from results [N]-> [1000] | [5000]
-                x_axis[f"{args}"] = np.array([])
-                x_axis[f"{args}"] = np.arange(len(x_labels[f"{args}"])) * WIDTH  # Generate x-axis values based on number of labels         #[0.]
+            results[f"{args}"] = run_test(0, test_data["type"], test_name, args, 1)
+            # TODO: remove x_labels
+            test_data["x_axis"] = np.array([])
+            test_data["x_axis"] = np.arange(len(test_data["args_N"])) * WIDTH  # Generate x-axis values based on number of labels         #[0, 1, 2 ,3]
+
+
 
 def main():
     if len(sys.argv) > 1:
@@ -355,11 +327,16 @@ def main():
         if test_name not in TESTS:
             print('Invalid test name.')
             exit(3)
-        func_index = -1
-        if len(sys.argv) > 2:
-            func_index = int(sys.argv[2])
+
         run_sequential_tests(test_name)
-        run_tests(test_name, TESTS[test_name], func_index)
+
+        if len(sys.argv) > 2:
+            for i in range(2, len(sys.argv)):
+                # TODO: provere 
+                run_tests(test_name, TESTS[test_name], int(sys.argv[i]))
+        else:
+            run_tests(test_name, TESTS[test_name], -1)
+
     else:
         # runs all tests
         run_sequential_tests(None)
@@ -367,6 +344,8 @@ def main():
             if test_data["type"] == "sequential":
                 continue
             run_tests(test_name, test_data)
+
+
 
 # To run the script, use 'python run.py' to run all tests or 'python run.py test_name' to run a specific test (e.g., 'feynman_omp_1d'). Results are saved as .svg charts and log files in the 'gen' directory.
 if __name__ == "__main__":

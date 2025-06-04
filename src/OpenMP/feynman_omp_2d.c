@@ -7,13 +7,13 @@
 
 #define NUM_LOCKS   512
 #define DIMENSIONS  2
-#define NI          6
-#define NJ          11
-// #define NI          126
-// #define NJ          6
 
 static double a = 2.0;
 static double b = 1.0;
+
+int NI = 0;
+int NJ = 0;
+
 // static double b = 50.0;
 static double h = 0.001;
 
@@ -193,10 +193,10 @@ double feynman_0(const double a, const double b, const double h, const double st
   double err = 0.0;
   int n_inside = 0;   // broj tacaka unutar elipsoida (unutar mreze)
 
-  double w_exact[NI+1][NJ+1] = {{0}};
-  double wt[NI+1][NJ+1] = {{0}};
+  double* w_exact = calloc((NI+1) * (NJ+1), sizeof(double));
+  double* wt = calloc((NI+1) * (NJ+1), sizeof(double));
 
-#pragma omp parallel default(none) shared(a, b, h, stepsz, N, n_inside, w_exact, wt, err, seed)
+#pragma omp parallel default(none) shared(a, b, h, stepsz, N, n_inside, w_exact, wt, err, seed, NI, NJ)
 {
   for (int i = 1; i <= NI; i++)
   {
@@ -208,6 +208,7 @@ double feynman_0(const double a, const double b, const double h, const double st
       double y = ((double)(NJ - j) * (-b) + (double)(j - 1) * b) / (double)(NJ - 1);
       double chk = pow(x / a, 2) + pow(y / b, 2);
 
+
       if ( 1.0 < chk )
       {
         // tacka nije unutar 2-D elipsoida
@@ -218,13 +219,13 @@ double feynman_0(const double a, const double b, const double h, const double st
 #pragma omp single nowait
 {
         n_inside++;
-        w_exact[i][j] = exp(pow(x / a, 2) + pow(y / b, 2) - 1.0);
+        w_exact[i * (NJ+1) + j] = exp(pow(x / a, 2) + pow(y / b, 2) - 1.0);
 } // single
 
       // pustamo N tacaka iz izabrane koordinate - visestruki pokusaji kako bi se dobila bolja aproksimacija
       // x, y and chk are private for thread by default
       // ovde sme nowait, jer niti ne zavise jedna od druge (sinhronizacija postoji vec zbog reduction, pa je i ona zadovoljena)
-#pragma omp for nowait reduction(+:wt[i][j])
+#pragma omp for nowait reduction(+:wt[:(NI+1)*(NJ+1)])       // probati sa pomeranjem pokazivaca, p dereferencirati
       for (int trial = 0; trial < N; trial++)
       {
         // seed is private variable, so numbers can generate uniformly
@@ -264,7 +265,7 @@ double feynman_0(const double a, const double b, const double h, const double st
   
           chk = pow(x1 / a, 2) + pow(x2 / b, 2);
         }
-        wt[i][j] += w;
+        wt[i * (NJ+1) + j] += w;
       }
     }
   }
@@ -278,13 +279,13 @@ double feynman_0(const double a, const double b, const double h, const double st
   {
     for (int j=0; j<=NJ; j++)
     {
-      if (w_exact[i][j] == 0.0)
+      if (w_exact[i * (NJ+1) + j] == 0.0)
       {
         // kada tacka nije unutar elipsoida
         continue;
       }
       // kvadrat razlike tacne i numericki dobijene vrednosti
-      err += pow(w_exact[i][j] - wt[i][j] / (double)(N), 2);
+      err += pow(w_exact[i * (NJ+1) + j] - wt[i * (NJ+1) + j] / (double)(N), 2);
     }
   }
 } // parallel
@@ -297,7 +298,7 @@ double feynman_1(const double a, const double b, const double h, const double st
   double err = 0.0;
   int n_inside = 0;
 
-  double w_exact[NI+1][NJ+1] = {{0}};
+  double w_exact[NI+1][NJ+1];
 
   for (int i = 1; i <= NI; i++) {
     for (int j = 1; j <= NJ; j++) {
@@ -305,6 +306,8 @@ double feynman_1(const double a, const double b, const double h, const double st
       double x = ((double)(NI - i) * (-a) + (double)(i - 1) * a) / (double)(NI - 1);
       double y = ((double)(NJ - j) * (-b) + (double)(j - 1) * b) / (double)(NJ - 1);
       double chk = pow(x / a, 2) + pow(y / b, 2);
+
+      w_exact[i][j] = 0;
 
       if (chk > 1.0) continue; // Van elipsoida
 
@@ -366,10 +369,10 @@ double feynman_2(const double a, const double b, const double h, const double st
   int n_inside = 0;   // broj tacaka unutar elipsoida (unutar mreze)
 
   // for every point in grid - must be initialized (moguce je da se desi da neki taskovi krenu da pristupaju matrici pre postavljanja na 0 -> citaju neinicijalizovanu memoriju)
-  double w_exact[NI+1][NJ+1] = {{0}};
-  double wt[NI+1][NJ+1] = {{0}};
+  double* w_exact = calloc((NI+1) * (NJ+1), sizeof(double));
+  double* wt = calloc((NI+1) * (NJ+1), sizeof(double));
 
-#pragma omp parallel default(none) shared(a, b, h, stepsz, N, n_inside, w_exact, wt, seed) 
+#pragma omp parallel default(none) shared(a, b, h, stepsz, N, n_inside, w_exact, wt, seed, NI, NJ) 
 {
 #pragma omp single
 {
@@ -382,8 +385,8 @@ double feynman_2(const double a, const double b, const double h, const double st
       double y = ((double)(NJ - j) * (-b) + (double)(j - 1) * b) / (double)(NJ - 1);
       double chk = pow(x / a, 2) + pow(y / b, 2);
 
-      w_exact[i][j] = 0.0;
-      wt[i][j] = 0.0;
+      w_exact[i * (NJ+1) + j] = 0.0;
+      wt[i * (NJ+1) + j] = 0.0;
 
       if ( 1.0 < chk )
       {
@@ -395,7 +398,7 @@ double feynman_2(const double a, const double b, const double h, const double st
       n_inside++;
  
       // analitička vrednost funkcije gustine/potencijala u tački unutar elipsoida - referentna vrednost koju poredimo u odnosu na numericku - wt
-      w_exact[i][j] = exp(pow(x / a, 2) + pow(y / b, 2) - 1.0);
+      w_exact[i * (NJ+1) + j] = exp(pow(x / a, 2) + pow(y / b, 2) - 1.0);
 
       // pustamo N tacaka iz izabrane koordinate - visestruki pokusaji kako bi se dobila bolja aproksimacija
       for (int trial = 0; trial < N; trial++)
@@ -441,7 +444,7 @@ double feynman_2(const double a, const double b, const double h, const double st
         }
 // jer se menja u kontekstu vise taskova
 #pragma omp atomic
-        wt[i][j] += w;
+        wt[i * (NJ+1) + j] += w;
 } // task
       }
     }
@@ -454,12 +457,12 @@ double feynman_2(const double a, const double b, const double h, const double st
   {
     for (int j = 0; j <= NJ; ++j)
     { 
-      if (w_exact[i][j] == 0.0)
+      if (w_exact[i * (NJ+1) + j] == 0.0)
       {
         // kada tacka nije unutar elipsoida
         continue;
       }
-      err += pow(w_exact[i][j] - (wt[i][j] / (double)(N)), 2);
+      err += pow(w_exact[i * (NJ+1) + j] - (wt[i * (NJ+1) + j] / (double)(N)), 2);
     }
   }
   // root-mean-square (RMS) error
@@ -489,15 +492,15 @@ double feynman_3(const double a, const double b, const double h, const double st
   int n_inside = 0;   // broj tacaka unutar elipsoida (unutar mreze)
 
   // for every point in grid - must be initialized (moguce je da se desi da neki taskovi krenu da pristupaju matrici pre postavljanja na 0 -> citaju neinicijalizovanu memoriju)
-  double w_exact[NI+1][NJ+1] = {{0}};
-  double wt[NI+1][NJ+1] = {{0}};
+  double* w_exact = calloc((NI+1) * (NJ+1), sizeof(double));
+  double* wt = calloc((NI+1) * (NJ+1), sizeof(double));
 
   for (int i = 0; i < NUM_LOCKS; i++) 
   {
     omp_init_lock(&locks[i]);
   }
 
-#pragma omp parallel default(none) shared(a, b, h, stepsz, N, n_inside, w_exact, wt, locks, seed) 
+#pragma omp parallel default(none) shared(a, b, h, stepsz, N, n_inside, w_exact, wt, locks, seed, NI, NJ) 
 {
 #pragma omp single
 {
@@ -510,8 +513,8 @@ double feynman_3(const double a, const double b, const double h, const double st
       double y = ((double)(NJ - j) * (-b) + (double)(j - 1) * b) / (double)(NJ - 1);
       double chk = pow(x / a, 2) + pow(y / b, 2);
 
-      w_exact[i][j] = 0.0;
-      wt[i][j] = 0.0;
+      w_exact[i * (NJ+1) + j] = 0.0;
+      wt[i * (NJ+1) + j] = 0.0;
 
       if ( 1.0 < chk )
       {
@@ -523,7 +526,7 @@ double feynman_3(const double a, const double b, const double h, const double st
       n_inside++;
  
       // analitička vrednost funkcije gustine/potencijala u tački unutar elipsoida - referentna vrednost koju poredimo u odnosu na numericku - wt
-      w_exact[i][j] = exp(pow(x / a, 2) + pow(y / b, 2) - 1.0);
+      w_exact[i * (NJ+1) + j] = exp(pow(x / a, 2) + pow(y / b, 2) - 1.0);
 
       // pustamo N tacaka iz izabrane koordinate - visestruki pokusaji kako bi se dobila bolja aproksimacija
       for (int trial = 0; trial < N; trial++)
@@ -573,7 +576,7 @@ double feynman_3(const double a, const double b, const double h, const double st
         // 
         int lock_id = get_lock_index(i, j);    // izracunaj index lock-a koji je potreban
         omp_set_lock(&locks[lock_id]);
-        wt[i][j] += w;
+        wt[i * (NJ+1) + j] += w;
         omp_unset_lock(&locks[lock_id]);
 } // task
       }
@@ -587,12 +590,12 @@ double feynman_3(const double a, const double b, const double h, const double st
   {
     for (int j = 0; j <= NJ; ++j)
     { 
-      if (w_exact[i][j] == 0.0)
+      if (w_exact[i * (NJ+1) + j] == 0.0)
       {
         // kada tacka nije unutar elipsoida
         continue;
       }
-      err += pow(w_exact[i][j] - (wt[i][j] / (double)(N)), 2);
+      err += pow(w_exact[i * (NJ+1) + j] - (wt[i * (NJ+1) + j] / (double)(N)), 2);
     }
   }
   // oslobađanje brava
@@ -613,7 +616,7 @@ double feynman_4(const double a, const double b, const double h, const double st
   double err = 0.0;
   int n_inside = 0;   // broj tacaka unutar elipsoida (unutar mreze)
 
-#pragma omp parallel default(none) shared(a, b, h, stepsz, N, seed) \
+#pragma omp parallel default(none) shared(a, b, h, stepsz, N, seed, NI, NJ) \
                                    reduction(+ : err) \
                                    reduction(+ : n_inside)
 {
@@ -704,7 +707,7 @@ double feynman_5(const double a, const double b, const double h, const double st
   double err = 0.0;
   int n_inside = 0;   // broj tacaka unutar elipsoida (unutar mreze)
 
-#pragma omp parallel default(none) shared(a, b, h, stepsz, N, seed) \
+#pragma omp parallel default(none) shared(a, b, h, stepsz, N, seed, NI, NJ) \
                                    reduction(+ : err) \
                                    reduction(+ : n_inside)
 {
@@ -807,16 +810,16 @@ int main ( int argc, char **argv )
 
   stepsz = sqrt(DIMENSIONS * h);
 
-  // if (a < b)
-  // {
-  //   NJ = 6;
-  //   NI = 1 + i4_ceiling (b / a) * (NJ - 1);
-  // }
-  // else
-  // {
-  //   NI = 6;
-  //   NJ = 1 + i4_ceiling (a / b) * (NI - 1);
-  // }
+  if (a < b)
+  {
+    NJ = 6;
+    NI = 1 + i4_ceiling (b / a) * (NJ - 1);
+  }
+  else
+  {
+    NI = 6;
+    NJ = 1 + i4_ceiling (a / b) * (NI - 1);
+  }
 
   printf("TEST: func=%d, N=%d, num_threads=%ld\n", func, N, get_num_threads());
   double wtime = omp_get_wtime();
