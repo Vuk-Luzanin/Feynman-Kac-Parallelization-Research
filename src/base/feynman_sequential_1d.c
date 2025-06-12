@@ -101,6 +101,8 @@ int main ( int argc, char **argv )
     Oxford, 2004,
     ISBN: 0-19-851577-4,
     LC: QA76.59.P47.
+
+    can be found here: https://people.inf.ethz.ch/arbenz/book/
 */
 {
   if (argc < 2)
