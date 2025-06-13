@@ -136,8 +136,8 @@ int main ( int argc, char **argv )
 /*
   Choose the spacing so we have about ni points on or in the interval.
 */
-  ni = 11;
-
+  //ni = 11;
+  ni = 100;
 /*
   RTH is the scaled stepsize.
 */

@@ -65,7 +65,7 @@ TESTS = {
     'feynman_omp_1d': {
         'type': 'omp',
         'args_N': [[1000], [5000], [10000], [20000]],
-        'funcs': 5,
+        'funcs': 7,
         'threads': [1, 2, 4, 8, 16]
     },
     'feynman_omp_2d': {
@@ -204,7 +204,7 @@ def run_tests(test_name: str, test_data: Dict[str, Any], func_index: int = -1):
             continue
 
         # give OS time to do his stuff
-        # time.sleep(5)
+        time.sleep(5)
 
         # get name of sequential test
         seq_name = test_name.split("_")
@@ -222,7 +222,7 @@ def run_tests(test_name: str, test_data: Dict[str, Any], func_index: int = -1):
         for args in test_args:
             
             # give OS time to do his stuff  
-            # time.sleep(5)
+            time.sleep(5)
             
             # Iterate over the number of threads for the test
             for num_threads in threads:
@@ -231,7 +231,7 @@ def run_tests(test_name: str, test_data: Dict[str, Any], func_index: int = -1):
 
                 print('Running test with function', func_num, 'arguments', args, 'and', num_threads, 'threads')
                 
-                # time.sleep(2)
+                time.sleep(2)
                 
                 # Run the test with the current number of threads
                 results = run_test(func_num, test_type, test_name, args, num_threads)
