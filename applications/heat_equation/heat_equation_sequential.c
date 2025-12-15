@@ -69,9 +69,9 @@ double randn(void)
 int main(void)
 {
     /* Parameters */
-    const int    N    = 100;     /* time steps */
-    const int    M    = 1000;    /* Monte Carlo paths */
-    const int    n_mc = 20;      /* spatial points */
+    const int    N    = 100;     /* time steps, number of steps until the end movement */
+    const int    M    = 1000;    /* Monte Carlo paths from one point */
+    const int    n_mc = 20;      /* spatial points, number of start points */
     const double T    = 1.0;
     const double L    = 3.0;
 
@@ -86,19 +86,15 @@ int main(void)
         x_mc[i] = -L + 2.0 * L * i / (n_mc - 1);
 
 
-    // continue to check the code
-
     /* MC estimator: mc[i][n] ≈ u(t_n, x_i) */
-    double mc[n_mc][N + 1];
+    double mc_estimator[n_mc][N + 1];
     for (int i = 0; i < n_mc; ++i)
         for (int n = 0; n <= N; ++n)
-            mc[i][n] = 0.0;
+            mc_estimator[i][n] = 0.0;
 
     srand(42);
 
-    /* ===============================
-       MONTE CARLO SIMULATION
-       =============================== */
+    // MONTE CARLO SIMULATION
     for (int m = 0; m < M; ++m) {
 
         double W = 0.0;  /* Brownian motion */
@@ -110,7 +106,7 @@ int main(void)
 
             for (int i = 0; i < n_mc; ++i) {
                 double val = x_mc[i] + sqrt_2 * W;
-                mc[i][n] += initial_condition(val);
+                mc_estimator[i][n] += initial_condition(val);
             }
         }
     }
@@ -118,18 +114,16 @@ int main(void)
     /* Normalize */
     for (int i = 0; i < n_mc; ++i)
         for (int n = 0; n <= N; ++n)
-            mc[i][n] /= M;
+            mc_estimator[i][n] /= M;
 
-    /* ===============================
-       OUTPUT: exact vs MC at t = T
-       =============================== */
+    // OUTPUT: exact vs MC at t = T
     printf("\nComparison at final time t = %.2f\n", T);
     printf("   x        exact        MC\n");
     printf("--------------------------------\n");
 
     for (int i = 0; i < n_mc; ++i) {
         double exact = exact_solution(T, x_mc[i]);
-        double mcval = mc[i][N];
+        double mcval = mc_estimator[i][N];
 
         printf("%+7.3f   %.6f   %.6f\n", x_mc[i], exact, mcval);
     }
