@@ -11,7 +11,7 @@
 
 static double a = 2.0;
 static double h = 0.0001;
-static double stepsz;
+static double stepsz = 0.0;
 static int num_threads = 8;
 
 static double wt[NI+1] = {0};
@@ -196,15 +196,18 @@ int main(int argc, char **argv) {
         printf("Usage: %s <N>\n", argv[0]);
         return 1;
     }
- 
+
     const int N = atoi(argv[1]);
+
     num_threads = get_num_threads();
     stepsz = sqrt(DIMENSIONS * h);
 
     printf("TEST: N=%d, num_threads=%d\n", N, num_threads);
-    double wtime = omp_get_wtime();
+
+    double wtime = omp_get_wtime();  // početno vreme
     double err = feynman_pthreads(a, N);
     wtime = omp_get_wtime() - wtime;
+
     printf("%d    %lf    %lf\n", N, err, wtime);
     printf("TEST END\n");
 

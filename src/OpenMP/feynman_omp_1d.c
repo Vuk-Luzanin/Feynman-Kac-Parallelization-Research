@@ -47,8 +47,93 @@ inline double r8_uniform_01(int *seed)
 
 double feynman_6(const double a, const double h, const double stepsz, const int N) 
 {
-  return 0.0;
+  int seed = 123456789;
+  double err = 0.0;
+  int n_inside = 0;
+  
+  #pragma omp parallel for schedule(guided) default(none) shared(a, h, stepsz, N, seed) \
+                                   reduction(+ : err) \
+                                   reduction(+ : n_inside)
+  for (int i = 0; i <= NI + 1; i++)
+  {
+    int ind;
+    if (i % 2)
+    {
+      ind = NI + 1 - i / 2;
+    }
+    else
+    {
+      ind = i / 2;
+    }
+
+    double x = ((double)(NI - ind) * (-a) + (double)(ind - 1) * a) / (double)(NI - 1);
+
+  
+    // interpolacija koordinata kako bi se dobilo kada je i = 1 -> x = -a, kada je i = ni -> x = a
+    
+    double chk = pow(x / a, 2);
+
+    double w_exact = 0;
+    double wt = 0;
+
+    if (1.0 < chk)
+    {
+      // tacka nije unutar 1-D elipsoida
+      continue;
+    }
+    // tacka je unutar 1-D elipsoida
+    n_inside++;
+
+    // analitička vrednost funkcije gustine/potencijala u tački unutar elipsoida - referentna vrednost koju poredimo u odnosu na numericku - wt
+    w_exact = exp(pow(x / a, 2) - 1.0);
+    wt = 0.0;
+
+    // pustamo N tacaka iz izabrane koordinate - visestruki pokusaji kako bi se dobila bolja aproksimacija
+    for (int trial = 0; trial < N; trial++)
+    {
+      // seed is private variable, so numbers can generate uniformly
+      int localseed = seed + omp_get_thread_num() * 997 + trial;      // LEAP-FROG
+
+      double x1 = x;
+
+      double w = 1.0;
+      chk = 0.0;
+
+      // kretanje cestice - dok se nalazi unutar elipsoida
+      while (chk < 1.0)
+      {
+#ifdef SMALL_STEP
+        double dx = ((double)rand() / RAND_MAX - 0.5) * sqrt((DIMENSIONS*1.0) * h);
+#else
+        // da li se pomeramo za +stepsz ili -stepsz
+       double dx = (r8_uniform_01(&localseed) - 0.5 < 0.0) ? -stepsz : stepsz;
+#endif  
+        // potential before moving
+        double vs = potential(a, x1);
+
+        // move
+        x1 = x1 + dx;
+
+        // potential after moving
+        double vh = potential(a, x1);
+
+        double we = (1.0 - h * vs) * w;           // Euler-ov korak
+        w = w - 0.5 * h * (vh * we + vs * w);     // trapezna aproksimacija
+
+        chk = pow(x1 / a, 2);
+      }
+      wt = wt + w;
+    }
+    // srednja vrenost tezine za N pokusaja
+    wt = wt / (double)(N);
+
+    // kvadrat razlike tacne i numericki dobijene vrednosti
+    err += pow(w_exact - wt, 2);
+  }
+  // root-mean-square (RMS) error
+  return sqrt(err / (double)(n_inside));
 }
+
 
 
 double feynman_0(const double a, const double h, const double stepsz, const int N) 

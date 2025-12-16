@@ -1,19 +1,14 @@
-# Ignoriši generisane fajlove
 result/
 
-# Ignoriši .log fajlove ako ih imaš negde drugde
 *.log
 
-# Ignoriši .svg grafike (ako ne želiš da ih commituješ)
 *.svg
 
-# Ignoriši build fajlove
 build/
 *.o
 *.exe
 *.out
 
-# Ignoriši VSCode workspace fajl 
 .vscode/
 
 .DS_Store

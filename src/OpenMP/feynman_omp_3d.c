@@ -48,10 +48,19 @@ inline double r8_uniform_01(int *seed)
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
-double feynman_6(const double a, const double b, const double c, const double h, const double stepsz, const int N) 
+double feynman_6(const double a, const double b, const double c,
+                  const double h, const double stepsz, const int N) 
 {
-  return 0.0;
+    (void)a;
+    (void)b;
+    (void)c;
+    (void)h;
+    (void)stepsz;
+    (void)N;
+
+    return 0.0;
 }
+
 
 double feynman_0(const double a, const double b, const double c, const double h, const double stepsz, const int N) 
 {
