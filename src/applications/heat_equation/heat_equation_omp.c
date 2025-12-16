@@ -65,7 +65,6 @@ double randn(void)
 }
 
 
-
 int main(void)
 {
     /* Parameters */

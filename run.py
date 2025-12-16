@@ -35,8 +35,8 @@ def get_x_N(result):
 def get_y_SPEEDUP(result, seq_result):
     return [max(float(seq_result[0][2]), 0.0000001) / max(float(result[0][2]), 0.0000001)]
 
-def get_same(result1, result2):
-    return abs(float(result1[0][1]) - float(result2[0][1])) <= ACCURACY
+def get_same(result1, result2, accuracy=ACCURACY):
+    return abs(float(result1[0][1]) - float(result2[0][1])) <= accuracy
 
 
 # IMPORTANT: Testove nazivati u formatu feynman_{tehnologija}_{DIMENSION}d
@@ -65,7 +65,7 @@ TESTS = {
     'feynman_omp_1d': {
         'type': 'omp',
         'args_N': [[1000], [5000], [10000], [20000]],
-        'funcs': 5,
+        'funcs': 6,
         'threads': [1, 2, 4, 8, 16]
     },
     'feynman_omp_2d': {
@@ -94,7 +94,7 @@ TESTS = {
         'type': 'pthreads',
         'args_N': [[1000], [5000], [10000], [20000]],
         'threads': [1, 2, 4, 8, 16]
-    }
+    },
 }
 
 thread_colors = {
