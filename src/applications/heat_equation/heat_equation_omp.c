@@ -96,12 +96,15 @@ int main(void)
 
     /* Spatial grid */
     double x_mc[n_mc];
+#pragma omp parallel for default(none) shared(x_mc, n_mc, L)
     for (int i = 0; i < n_mc; ++i)
         x_mc[i] = -L + 2.0 * L * i / (n_mc - 1);
 
 
     /* MC estimator: mc[i][n] ≈ u(t_n, x_i) */
     double mc_estimator[n_mc][N + 1];
+
+#pragma omp parallel for collapse(2) default(none) shared(mc_estimator, n_mc, N)
     for (int i = 0; i < n_mc; ++i)
         for (int n = 0; n <= N; ++n)
             mc_estimator[i][n] = 0.0;
@@ -114,12 +117,13 @@ int main(void)
     /* svaki thread ima lokalni akumulator */
     double local_mc[n_mc][N + 1];
 
+    #pragma omp for collapse(2)
     for (int i = 0; i < n_mc; ++i)
         for (int n = 0; n <= N; ++n)
             local_mc[i][n] = 0.0;
 
     // MONTE CARLO SIMULATION
-#pragma omp for schedule(static)
+#pragma omp for schedule(dynamic)
     for (int m = 0; m < M; ++m) {
 
         double W = 0.0;  /* Brownian motion */
@@ -146,10 +150,12 @@ int main(void)
 } // parallel
 
     /* Normalize */
+#pragma omp parallel for collapse(2) default(none) shared(mc_estimator, M, n_mc, N)
     for (int i = 0; i < n_mc; ++i)
         for (int n = 0; n <= N; ++n)
             mc_estimator[i][n] /= M;
 
+    wtime = omp_get_wtime() - wtime;
     // OUTPUT: exact vs MC at t = T
     // printf("\nComparison at final time t = %.2f\n", T);
     // printf("   x        exact        MC\n");
@@ -164,7 +170,6 @@ int main(void)
         // printf("%+7.3f   %.6f   %.6f\n", x_mc[i], exact, mcval);
     }
 
-    wtime = omp_get_wtime() - wtime;
     printf("%d    %lf    %lf\n", N, err, wtime);
     printf("TEST END\n");
 

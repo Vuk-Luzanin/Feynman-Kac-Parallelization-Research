@@ -84,8 +84,7 @@ int main(void)
     double wtime = omp_get_wtime();
 
 
-    /* Spatial grid */
-    double x_mc[n_mc];
+    double x_mc[n_mc];          /* spatial points */
     for (int i = 0; i < n_mc; ++i)
         x_mc[i] = -L + 2.0 * L * i / (n_mc - 1);
 

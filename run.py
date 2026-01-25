@@ -116,7 +116,20 @@ APPS = {
         'args_N': [],
         'x_axis' : [],
         'threads': [1, 2, 4, 8, 16]
-    } 
+    },
+    'girsanov_importance_sampling_sequential': {
+        'type': 'sequential',
+        'args_N': [],
+        'results' : {},              # key (args) : value (results)
+        'x_axis' : [],
+        'threads': [1]
+    },
+    'girsanov_importance_sampling_omp': {
+        'type': 'omp',
+        'args_N': [],
+        'x_axis' : [],
+        'threads': [1, 2, 4, 8, 16]
+    },
 }
 
 class AppTest(Enum):
