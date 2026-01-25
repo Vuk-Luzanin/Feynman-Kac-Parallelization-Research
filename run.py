@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from enum import Enum
 from subprocess import Popen, PIPE
 import subprocess
 import sys
@@ -9,6 +10,7 @@ from sys import argv, exit, stderr
 from matplotlib import pyplot as plt
 import numpy as np
 import time
+
 
 SCRIPT_DIR = dirname(realpath(__file__))
 BUILD_DIR = join(SCRIPT_DIR, 'result')
@@ -37,6 +39,7 @@ def get_y_SPEEDUP(result, seq_result):
 
 def get_same(result1, result2, accuracy=ACCURACY):
     return abs(float(result1[0][1]) - float(result2[0][1])) <= accuracy
+
 
 
 # IMPORTANT: Testove nazivati u formatu feynman_{tehnologija}_{DIMENSION}d
@@ -83,19 +86,42 @@ TESTS = {
     'feynman_pthreads_1d': {
         'type': 'pthreads',
         'args_N': [[1000], [5000], [10000], [20000]],
+        'funcs': 2,
         'threads': [1, 2, 4, 8, 16]
     },
     'feynman_pthreads_2d': {
         'type': 'pthreads',
         'args_N': [[1000], [5000], [10000], [20000]],
+        'funcs': 1,
         'threads': [1, 2, 4, 8, 16]
     },
     'feynman_pthreads_3d': {
         'type': 'pthreads',
         'args_N': [[1000], [5000], [10000], [20000]],
+        'funcs': 1,
         'threads': [1, 2, 4, 8, 16]
     },
 }
+
+APPS = {
+    'heat_equation_sequential': {
+        'type': 'sequential',
+        'args_N': [],
+        'results' : {},              # key (args) : value (results)
+        'x_axis' : [],
+        'threads': [1]
+    },
+    'heat_equation_omp': {
+        'type': 'omp',
+        'args_N': [],
+        'x_axis' : [],
+        'threads': [1, 2, 4, 8, 16]
+    } 
+}
+
+class AppTest(Enum):
+    APP = 0
+    TEST = 1
 
 thread_colors = {
     2: 'tab:blue',
@@ -109,40 +135,34 @@ WIDTH = 2.0
 GROUP_WIDTH = 1.2
 BAR_WIDTH_INDEX = 0.7
 
-# pokrece test i cuva stdout, i pravi log fajlove
-# Defines a function that runs a test executable based on the test type (OpenMP for now)
-def run_test(func_num: int, test_type: str, exe_name: str, args: List[int], num_threads: int) -> Result:
-    # Make a copy of the current environment so we can modify it locally for this specific test (OMP_NUM_THREADS variable)
+
+# starts the test and returns the results and creates log files
+# exe_name is from TESTS keys
+def run_test(func_num: int, test_type: str, exe_name: str, args: List[int], num_threads: int, app_test: AppTest) -> Result:
     process_env = env.copy()
     
     # Convert all provided arguments to strings, since command-line arguments must be strings
     stringified_args = [str(arg) for arg in args]
 
     subdir = exe_name.rsplit('_', 1)[0]  # npr. "feynman_omp_1d" -> "feynman_omp"
-    exe_path = join(BUILD_DIR, subdir, exe_name)
+    exe_path = join(BUILD_DIR, subdir, exe_name) if app_test == AppTest.TEST else join(BUILD_DIR, 'feynman_applications', subdir, exe_name)
+    log_filename = ''
 
-    # If the test type is OpenMP
     if test_type == 'sequential':
         # Prepare the base arguments for executing the program (path to executable + function number)
-        process_args = [exe_path]
+        process_args = [exe_path] 
         # Build the log file name based on the command arguments
         log_filename = ' '.join(process_args + stringified_args + [str(num_threads)])
     elif test_type == 'omp':
         # Set the number of OpenMP threads in the environment for this process
         process_env['OMP_NUM_THREADS'] = str(num_threads)
-        # Prepare the base arguments for executing the program (path to executable + function number)
         process_args = [exe_path, str(func_num)]
-        # Build the log file name based on the command arguments
         log_filename = ' '.join(process_args + stringified_args + [str(num_threads)])
     elif test_type == 'pthreads':       # IMPORTANT: PTHREADS reads number of threads from OMP_NUM_THREADS variable
-        # Set the number of OpenMP threads in the environment for this process
         process_env['OMP_NUM_THREADS'] = str(num_threads)
-        # Prepare the base arguments for executing the program (path to executable + function number)
-        process_args = [exe_path]
-        # Build the log file name based on the command arguments
+        process_args = [exe_path, str(func_num)]
         log_filename = ' '.join(process_args + stringified_args + [str(num_threads)])
 
-    # If the test type is unknown, raise an exception
     else:
         raise BaseException('Unknown test type.')
 
@@ -152,9 +172,6 @@ def run_test(func_num: int, test_type: str, exe_name: str, args: List[int], num_
     # Launch the process with the specified environment and capture its stdout
     process = Popen(process_args, env=process_env, stdout=PIPE) # env=process_env -> Environment variables that will apply only to this specific process.
 
-    # stdout=PIPE means that the standard output of the process (what the program would normally print to the screen)
-    # is redirected so it can be read from Python code through process.stdout
-
     # Wait for the process to finish, and if it returns a non-zero status or has no output, return an empty list
     if process.wait() != 0 or not process.stdout:
         return []
@@ -162,28 +179,27 @@ def run_test(func_num: int, test_type: str, exe_name: str, args: List[int], num_
     # List to store the parsed results
     results = []
 
-    # Define the log file name and its full path
     log_filename = join(BUILD_DIR, f'{log_filename}.log')
 
     # Open the log file for writing
     with open(log_filename, 'w', encoding='utf-8') as log_file:
         # Read each line of the process output
         for line in process.stdout:
-            # Decode the line from bytes to string
             print(f'Line: "{line}"')
             line = line.decode('utf-8')
-            # Write the line to the log file
             log_file.write(line)
             # If the line doesn't start with 'TEST', split it into components and store it in results
             if not line.startswith('TEST'):
                 results.append(line.split())
 
-    # Return the collected results
     return results
 
 
+# runs the parallel tests and generates charts
 def run_tests(test_name: str, test_data: Dict[str, Any], func_index: int = -1):
-    # Print the name of the test being run
+    if 'sequential' in test_name:
+        return
+    
     print('Running', test_name, 'tests')
 
     # Number of functions to test (default to 1 if 'funcs' not specified)
@@ -192,7 +208,7 @@ def run_tests(test_name: str, test_data: Dict[str, Any], func_index: int = -1):
     # Arguments for the tests (default to empty list if 'args' not specified)
     test_args = test_data['args_N'] if 'args_N' in test_data else [[]]
 
-    # Type of test (e.g., OpenMP)
+    # Type of test (e.g., omp)
     test_type = test_data['type']
     
     # List of thread counts to test
@@ -204,7 +220,7 @@ def run_tests(test_name: str, test_data: Dict[str, Any], func_index: int = -1):
             continue
 
         # give OS time to do his stuff
-        time.sleep(5)
+        time.sleep(4)
 
         # get name of sequential test
         seq_name = test_name.split("_")
@@ -222,21 +238,21 @@ def run_tests(test_name: str, test_data: Dict[str, Any], func_index: int = -1):
         for args in test_args:
             
             # give OS time to do his stuff  
-            time.sleep(5)
+            time.sleep(4)
             
             # Iterate over the number of threads for the test
             for num_threads in threads:
                 if num_threads == threads[0]:
                     continue
 
-                print('Running test with function', func_num, 'arguments', args, 'and', num_threads, 'threads')
+                print(f'Running test with function index {func_num}, arguments {args}, and {num_threads} threads')
                 
-                time.sleep(2)
+                time.sleep(4)
                 
                 # Run the test with the current number of threads
-                results = run_test(func_num, test_type, test_name, args, num_threads)
+                results = run_test(func_num, test_type, test_name, args, num_threads, AppTest.TEST)
                 
-                # If results are empty, print error and exit
+                # If results are empty, Error
                 if len(results) == 0:
                     print('An error occurred while getting results for ', func_num, args, num_threads, file=stderr)
                     exit(1)
@@ -293,11 +309,13 @@ def run_tests(test_name: str, test_data: Dict[str, Any], func_index: int = -1):
     print('Test PASSED')
 
 
+
+
 def run_sequential_tests(test_name_in: str):       # feynman_omp_1d
     # run sequential implementation
     # Print the name of the test being run
     if test_name_in is not None:
-        print('Running sequential', test_name_in, 'tests')
+        print(f'Running sequential {test_name_in} tests')
         tmp = test_name_in.split("_")
         tmp[1] = "sequential"
         test_name_in = "_".join(tmp)            # feynman_sequential_1d
@@ -311,28 +329,118 @@ def run_sequential_tests(test_name_in: str):       # feynman_omp_1d
             continue
 
         for args in test_data["args_N"]:
-
             results = test_data["results"]
-
-            results[f"{args}"] = run_test(0, test_data["type"], test_name, args, 1)
+            results[f"{args}"] = run_test(0, test_data["type"], test_name, args, 1, AppTest.TEST)
             # TODO: remove x_labels
             test_data["x_axis"] = np.array([])
             test_data["x_axis"] = np.arange(len(test_data["args_N"])) * WIDTH  # Generate x-axis values based on number of labels         #[0, 1, 2 ,3]
 
 
+def run_sequential_applications():
+    print('Running sequential application tests')
+    for app_name, app_data in APPS.items():
+        if app_data["type"] != "sequential":
+            continue
+        seq_results = run_test(0, app_data["type"], app_name, [], 1, AppTest.APP)
+        APPS[app_name]["results"] = seq_results
+        APPS[app_name]["x_axis"] = np.array([])
+        APPS[app_name]["x_axis"] = np.arange(1) * WIDTH  # Placeholder for actual labels         #[0]
+
+
+def run_application():
+    print('Running application tests')
+    for app_name, app_data in APPS.items():
+        test_type = app_data['type']
+        threads = app_data['threads']
+
+        if test_type == 'sequential':
+            continue
+
+        # get name of sequential test
+        seq_name = app_name.rsplit("_", 1)[0] + "_sequential"
+        seq_results = APPS[seq_name]["results"]
+        x_axis = APPS[seq_name]["x_axis"]            # [0]
+        
+        plt.figure(figsize=(15, 7))
+        shown_labels = set()
+
+        for num_threads in threads:
+            if num_threads == threads[0]:
+                continue
+
+            print(f'Running application test {app_name} with {num_threads} threads')
+
+            # time.sleep(1)
+
+            results = run_test(0, test_type, app_name, [], num_threads, AppTest.APP)
+
+            if len(results) == 0:
+                print('An error occurred while getting results for ', app_name, num_threads, file=stderr)
+                exit(1)
+
+            # If results do not match sequential results, print error and exit
+            if not get_same(seq_results, results):
+                print('Results mismatch for function ', 1, num_threads, seq_results, results, file=stderr)
+                print('Test FAILED')
+                exit(2)
+
+            speedups = get_y_SPEEDUP(results, seq_results)  # Placeholder for actual sequential results
+
+            bar_width_disp = GROUP_WIDTH / ((len(threads) - 1) * 6.0)  
+            bar_width = bar_width_disp * 0.09                          
+
+            x_my = (
+                x_axis[0]
+                - ((len(threads) - 2) * bar_width_disp) / 2
+                + (threads.index(num_threads) - 1) * bar_width_disp
+            )
+
+
+            label = f"threads={num_threads}"
+            color = thread_colors[num_threads]
+
+            if label not in shown_labels:
+                bar = plt.bar(x_my, speedups, label=label, width=bar_width, color=color)
+                shown_labels.add(label)
+            else:
+                bar = plt.bar(x_my, speedups, width=bar_width, color=color)
+
+            plt.bar_label(bar, [round(speedup, 1) for speedup in speedups])
+
+        plt.title(f'Application Results for {app_name}')
+        plt.xlabel('$N$')
+        plt.ylabel('Speedup')
+        plt.grid(axis='y', linestyle='--', alpha=0.2)
+        plt.xticks(APPS[seq_name]["x_axis"], [app_name])  
+        plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.08),
+           ncol=len(threads), frameon=False)
+
+        svg_dir = join(BUILD_DIR, 'feynman_applications', app_name.rsplit("_", 1)[0])
+
+        svg_filename = f'results-{app_name}.svg'
+        plt.savefig(join(svg_dir, svg_filename))
+        plt.close
+
 
 def main():
     if len(sys.argv) > 1:
+        # run specific test
         test_name = sys.argv[1]
-        if test_name not in TESTS:
+        if test_name not in TESTS and test_name != 'application':
             print('Invalid test name.')
             exit(3)
+        
+        # run all application tests
+        if test_name == 'application':
+            run_sequential_applications()
+            run_application()
+            return
 
-        run_sequential_tests(test_name)
+        # sequential tests for that test
+        run_sequential_tests(test_name) 
 
         if len(sys.argv) > 2:
             for i in range(2, len(sys.argv)):
-                # TODO: provere 
                 run_tests(test_name, TESTS[test_name], int(sys.argv[i]))
         else:
             run_tests(test_name, TESTS[test_name], -1)
@@ -351,5 +459,3 @@ def main():
 if __name__ == "__main__":
     run_make()
     main()
-
-

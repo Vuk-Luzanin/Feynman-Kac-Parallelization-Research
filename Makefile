@@ -60,16 +60,15 @@ endif
 DIM = 1d 2d 3d
 
 # all is defined as main target when running make
-all: \
+all: simulations apps
+
+# build all feynman-kac implementations
+simulations: \
   $(foreach d,$(DIM),$(SEQUENTIAL_BUILD_DIR)/feynman_sequential_$(d)) \
   $(foreach d,$(DIM),$(OMP_BUILD_DIR)/feynman_omp_$(d)) \
-  $(foreach d,$(DIM),$(PTHREADS_BUILD_DIR)/feynman_pthreads_$(d)) \
-  $(APPLICATION_HEAT_EQUATION_BUILD_DIR)/heat_equation_sequential \
-  $(APPLICATION_HEAT_EQUATION_BUILD_DIR)/heat_equation_omp \
-  $(APPLICATION_GIRSANOV_BUILD_DIR)/girsanov_importance_sampling_sequential \
-  $(APPLICATION_GIRSANOV_BUILD_DIR)/girsanov_importance_sampling_omp
+  $(foreach d,$(DIM),$(PTHREADS_BUILD_DIR)/feynman_pthreads_$(d)) 
 
-# sequetial
+# sequential
 $(SEQUENTIAL_BUILD_DIR)/feynman_sequential_%: $(SEQUENTIAL_DIR)/feynman_sequential_%.c | $(SEQUENTIAL_BUILD_DIR)
 	$(OMPCC) $(CC_FLAGS) $^ -o $@ $(LIBS)
 
@@ -81,13 +80,29 @@ $(OMP_BUILD_DIR)/feynman_omp_%: $(OMP_DIR_SRC)/feynman_omp_%.c $(SOURCE_DIR)/uti
 $(PTHREADS_BUILD_DIR)/feynman_pthreads_%: $(PTHREADS_DIR_SRC)/feynman_pthreads_%.c $(SOURCE_DIR)/util.c | $(PTHREADS_BUILD_DIR)
 	$(OMPCC) $(CC_FLAGS) $^ -o $@ $(LIBS) -lpthread
 
-# Applications: Heat Equation
-$(APPLICATION_HEAT_EQUATION_BUILD_DIR)/heat_equation_%: $(APPLICATIONS_HEAT_EQUATION_DIR_SRC)/heat_equation_%.c $(SOURCE_DIR)/util.c | $(APPLICATION_HEAT_EQUATION_BUILD_DIR)
-	$(OMPCC) $(CC_FLAGS) $^ -o $@ $(LIBS) -lpthread
+# buiild applications
+apps: \
+  $(APPLICATION_HEAT_EQUATION_BUILD_DIR)/heat_equation_sequential \
+  $(APPLICATION_HEAT_EQUATION_BUILD_DIR)/heat_equation_omp \
+  $(APPLICATION_GIRSANOV_BUILD_DIR)/girsanov_importance_sampling_sequential \
+  $(APPLICATION_GIRSANOV_BUILD_DIR)/girsanov_importance_sampling_omp
 
-# Applications: Girsanov
-$(APPLICATION_GIRSANOV_BUILD_DIR)/girsanov_importance_sampling_%: $(APPLICATIONS_GIRSANOV_DIR_SRC)/girsanov_importance_sampling_%.c $(SOURCE_DIR)/util.c | $(APPLICATION_GIRSANOV_BUILD_DIR)
-	$(OMPCC) $(CC_FLAGS) $^ -o $@ $(LIBS) -lpthread
+# Applications: Heat Equation - sequential
+$(APPLICATION_HEAT_EQUATION_BUILD_DIR)/heat_equation_sequential: $(APPLICATIONS_HEAT_EQUATION_DIR_SRC)/heat_equation_sequential.c $(SOURCE_DIR)/util.c | $(APPLICATION_HEAT_EQUATION_BUILD_DIR)
+	$(OMPCC) $(CC_FLAGS) $^ -o $@ $(LIBS) 
+
+# Applications: Heat Equation - omp
+$(APPLICATION_HEAT_EQUATION_BUILD_DIR)/heat_equation_omp: $(APPLICATIONS_HEAT_EQUATION_DIR_SRC)/heat_equation_omp.c $(SOURCE_DIR)/util.c | $(APPLICATION_HEAT_EQUATION_BUILD_DIR)
+	$(OMPCC) $(CC_FLAGS) $^ -o $@ $(LIBS) 
+
+# Applications: Girsanov - sequential
+$(APPLICATION_GIRSANOV_BUILD_DIR)/girsanov_importance_sampling_sequential: $(APPLICATIONS_GIRSANOV_DIR_SRC)/girsanov_importance_sampling_sequential.c $(SOURCE_DIR)/util.c | $(APPLICATION_GIRSANOV_BUILD_DIR)
+	$(OMPCC) $(CC_FLAGS) $^ -o $@ $(LIBS) 
+
+# Applications: Girsanov - omp
+$(APPLICATION_GIRSANOV_BUILD_DIR)/girsanov_importance_sampling_omp: $(APPLICATIONS_GIRSANOV_DIR_SRC)/girsanov_importance_sampling_omp.c $(SOURCE_DIR)/util.c | $(APPLICATION_GIRSANOV_BUILD_DIR)
+	$(OMPCC) $(CC_FLAGS) $^ -o $@ $(LIBS) 
+
 
 # create needed directories
 $(SEQUENTIAL_BUILD_DIR) $(OMP_BUILD_DIR) $(PTHREADS_BUILD_DIR) $(APPLICATIONS_BUILD_DIR) $(APPLICATION_HEAT_EQUATION_BUILD_DIR) $(APPLICATION_GIRSANOV_BUILD_DIR):

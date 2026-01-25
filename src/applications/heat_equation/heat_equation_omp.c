@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <math.h>
 #include <time.h>
+#include <omp.h>
+#include "util.h"
 
 /* 
 Indicator function 1_{[-1,1]}
@@ -64,6 +66,17 @@ double randn(void)
     return u * s;
 }
 
+// thread-safe version of randn using rand_r
+static inline double randn_r(unsigned int *seed)
+{
+    double u1 = rand_r(seed) / (double)RAND_MAX;
+    double u2 = rand_r(seed) / (double)RAND_MAX;
+
+    double r = sqrt(-2.0 * log(u1));
+    double theta = 2.0 * M_PI * u2;
+
+    return r * cos(theta);
+}
 
 int main(void)
 {
@@ -78,6 +91,8 @@ int main(void)
     const double sqrt_dt = sqrt(dt);
     const double sqrt_2  = sqrt(2.0);
 
+    printf("TEST: heat equation arguments [%d] and sequential\n", N);
+    double wtime = omp_get_wtime();
 
     /* Spatial grid */
     double x_mc[n_mc];
@@ -91,9 +106,20 @@ int main(void)
         for (int n = 0; n <= N; ++n)
             mc_estimator[i][n] = 0.0;
 
-    srand(42);
+#pragma omp parallel default(none) \
+            shared(mc_estimator, x_mc, N, M, n_mc, sqrt_dt, sqrt_2)
+{
+    unsigned int seed = 1234 + 997 * omp_get_thread_num();
+
+    /* svaki thread ima lokalni akumulator */
+    double local_mc[n_mc][N + 1];
+
+    for (int i = 0; i < n_mc; ++i)
+        for (int n = 0; n <= N; ++n)
+            local_mc[i][n] = 0.0;
 
     // MONTE CARLO SIMULATION
+#pragma omp for schedule(static)
     for (int m = 0; m < M; ++m) {
 
         double W = 0.0;  /* Brownian motion */
@@ -101,14 +127,23 @@ int main(void)
         for (int n = 0; n <= N; ++n) {
 
             if (n > 0)
-                W += sqrt_dt * randn();
+                W += sqrt_dt * randn_r(&seed);
 
             for (int i = 0; i < n_mc; ++i) {
                 double val = x_mc[i] + sqrt_2 * W;
-                mc_estimator[i][n] += initial_condition(val);
+                local_mc[i][n] += initial_condition(val);
             }
         }
     }
+
+    /* Normalize */
+#pragma omp critical
+{
+    for (int i = 0; i < n_mc; ++i)
+        for (int n = 0; n <= N; ++n)
+            mc_estimator[i][n] += local_mc[i][n];
+} // critical
+} // parallel
 
     /* Normalize */
     for (int i = 0; i < n_mc; ++i)
@@ -116,16 +151,22 @@ int main(void)
             mc_estimator[i][n] /= M;
 
     // OUTPUT: exact vs MC at t = T
-    printf("\nComparison at final time t = %.2f\n", T);
-    printf("   x        exact        MC\n");
-    printf("--------------------------------\n");
-
+    // printf("\nComparison at final time t = %.2f\n", T);
+    // printf("   x        exact        MC\n");
+    // printf("--------------------------------\n");
+ 
+    double err = 0.0;
     for (int i = 0; i < n_mc; ++i) {
         double exact = exact_solution(T, x_mc[i]);
         double mcval = mc_estimator[i][N];
 
-        printf("%+7.3f   %.6f   %.6f\n", x_mc[i], exact, mcval);
+        err += (exact - mcval) * (exact - mcval);
+        // printf("%+7.3f   %.6f   %.6f\n", x_mc[i], exact, mcval);
     }
+
+    wtime = omp_get_wtime() - wtime;
+    printf("%d    %lf    %lf\n", N, err, wtime);
+    printf("TEST END\n");
 
     return 0;
 }

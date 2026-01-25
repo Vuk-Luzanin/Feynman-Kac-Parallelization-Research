@@ -137,7 +137,7 @@ void* trial_worker(void *varg)
     return NULL;
 }
 
-double feynman_pthreads_3d(double a, double b, double c, int N)
+double feynman_pthreads_3d(double a, double b, double c, int N, const int func)
 {
     int n_inside = 0;
 
@@ -207,22 +207,23 @@ double feynman_pthreads_3d(double a, double b, double c, int N)
 
 int main(int argc, char **argv)
 {
-    if (argc < 2)
+    if (argc < 3)
     {
         printf("Invalid number of arguments passed.\n");
         return 1;
     }
 
-    const int N = atoi(argv[1]);
+    const int func = atoi(argv[1]);
+    const int N = atoi(argv[2]);
     num_threads = get_num_threads();
 
     stepsz = sqrt(DIMENSIONS * h);
 
     init_locks();
 
-    printf("TEST: N=%d, num_threads=%d\n", N, num_threads);
+    printf("TEST: func=%d, N=%d, num_threads=%ld\n", func, N, get_num_threads());
     double wtime = omp_get_wtime();
-    double err = feynman_pthreads_3d(a, b, c, N);
+    double err = feynman_pthreads_3d(a, b, c, N, func);
     wtime = omp_get_wtime() - wtime;
     printf("%d    %lf    %lf\n", N, err, wtime);
     printf("TEST END\n");

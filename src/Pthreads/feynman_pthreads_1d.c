@@ -19,7 +19,6 @@ static double w_exact[NI+1] = {0};
 
 static int global_trial_index;  // globalni atomic brojac za dinamicku raspodelu posla
 
-
 typedef struct {
     int i;       // to add on seed
     double x;   // coordinate
@@ -130,8 +129,10 @@ void* worker_static(void* restrict arg_) {
     return NULL;
 }
 
+void* (*FUNCS[])(void* restrict)  = {worker_dynamic, worker_static};
 
-double feynman_pthreads(const double a, const int N) {
+
+double feynman_pthreads(const double a, const int N, const int func) {
     int n_inside = 0;
 
     // pronalazimo tacke unutar elipsoida
@@ -166,7 +167,7 @@ double feynman_pthreads(const double a, const int N) {
         args[t].n_inside = n_inside;
         args[t].thread_id = t;
         
-        pthread_create(&threads[t], NULL, worker_dynamic, &args[t]);
+        pthread_create(&threads[t], NULL, FUNCS[func], &args[t]);
     }
 
     for (int t = 0; t < num_threads; ++t) {
@@ -192,20 +193,22 @@ double feynman_pthreads(const double a, const int N) {
 }
 
 int main(int argc, char **argv) {
-    if (argc < 2) {
-        printf("Usage: %s <N>\n", argv[0]);
+    if (argc < 3) {
+        printf("Invalid number of arguments passed.\n");
         return 1;
     }
 
-    const int N = atoi(argv[1]);
+    // index of function
+    const int func = atoi(argv[1]);
+    const int N = atoi(argv[2]);
 
     num_threads = get_num_threads();
     stepsz = sqrt(DIMENSIONS * h);
 
-    printf("TEST: N=%d, num_threads=%d\n", N, num_threads);
+    printf("TEST: func=%d, N=%d, num_threads=%ld\n", func, N, get_num_threads());
 
     double wtime = omp_get_wtime();  // početno vreme
-    double err = feynman_pthreads(a, N);
+    double err = feynman_pthreads(a, N, func);
     wtime = omp_get_wtime() - wtime;
 
     printf("%d    %lf    %lf\n", N, err, wtime);

@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <math.h>
 #include <time.h>
+#include <omp.h>    // for time measurement
+
 
 /* 
 Indicator function 1_{[-1,1]}
@@ -68,15 +70,18 @@ double randn(void)
 int main(void)
 {
     /* Parameters */
-    const int    N    = 100;     /* time steps, number of steps until the end movement */
+    const int    N    = 100;     /* time steps, number of steps until the end of movement */
     const int    M    = 1000;    /* Monte Carlo paths from one point */
     const int    n_mc = 20;      /* spatial points, number of start points */
     const double T    = 1.0;
-    const double L    = 3.0;
+    const double L    = 3.0; 
 
     const double dt      = T / N;
     const double sqrt_dt = sqrt(dt);
     const double sqrt_2  = sqrt(2.0);
+
+    printf("TEST: heat equation arguments [%d] and sequential\n", N);
+    double wtime = omp_get_wtime();
 
 
     /* Spatial grid */
@@ -116,16 +121,20 @@ int main(void)
             mc_estimator[i][n] /= M;
 
     // OUTPUT: exact vs MC at t = T
-    printf("\nComparison at final time t = %.2f\n", T);
-    printf("   x        exact        MC\n");
-    printf("--------------------------------\n");
+    // printf("\nComparison at final time t = %.2f\n", T);
+    // printf("   x        exact        MC\n");
+    // printf("--------------------------------\n");
 
+    double err = 0.0;
     for (int i = 0; i < n_mc; ++i) {
         double exact = exact_solution(T, x_mc[i]);
         double mcval = mc_estimator[i][N];
-
-        printf("%+7.3f   %.6f   %.6f\n", x_mc[i], exact, mcval);
+        err += (exact - mcval) * (exact - mcval);
+        // printf("%+7.3f   %.6f   %.6f\n", x_mc[i], exact, mcval);
     }
+    wtime = omp_get_wtime() - wtime;
+    printf("%d    %lf    %lf\n", N, err, wtime);
+    printf("TEST END\n");
 
-    return 0;
+    return 0; 
 }
