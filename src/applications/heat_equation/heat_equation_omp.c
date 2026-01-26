@@ -78,10 +78,16 @@ static inline double randn_r(unsigned int *seed)
     return r * cos(theta);
 }
 
-int main(void)
+int main(int argc, char **argv)
 {
+    if (argc < 2)
+    {
+        printf("Invalid number of arguments passed.\n");
+        return 1;
+    }
+
     /* Parameters */
-    const int    N    = 100;     /* time steps, number of steps until the end movement */
+    const int    N    = atoi(argv[1]); //100;     /* time steps, number of steps until the end movement */
     const int    M    = 1000;    /* Monte Carlo paths from one point */
     const int    n_mc = 20;      /* spatial points, number of start points */
     const double T    = 1.0;
@@ -165,10 +171,11 @@ int main(void)
     for (int i = 0; i < n_mc; ++i) {
         double exact = exact_solution(T, x_mc[i]);
         double mcval = mc_estimator[i][N];
-
         err += (exact - mcval) * (exact - mcval);
-        // printf("%+7.3f   %.6f   %.6f\n", x_mc[i], exact, mcval);
     }
+
+    err = sqrt(err / n_mc);   // RMS error
+
 
     printf("%d    %lf    %lf\n", N, err, wtime);
     printf("TEST END\n");

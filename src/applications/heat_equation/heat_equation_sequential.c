@@ -67,10 +67,16 @@ double randn(void)
 }
 
 
-int main(void)
+int main(int argc, char **argv)
 {
+    if (argc < 2)
+    {
+        printf("Invalid number of arguments passed.\n");
+        return 1;
+    }
+
     /* Parameters */
-    const int    N    = 100;     /* time steps, number of steps until the end of movement */
+    const int    N    = atoi(argv[1]);// 100;     /* time steps, number of steps until the end of movement */
     const int    M    = 1000;    /* Monte Carlo paths from one point */
     const int    n_mc = 20;      /* spatial points, number of start points */
     const double T    = 1.0;
@@ -119,6 +125,7 @@ int main(void)
         for (int n = 0; n <= N; ++n)
             mc_estimator[i][n] /= M;
 
+    wtime = omp_get_wtime() - wtime;
     // OUTPUT: exact vs MC at t = T
     // printf("\nComparison at final time t = %.2f\n", T);
     // printf("   x        exact        MC\n");
@@ -129,9 +136,11 @@ int main(void)
         double exact = exact_solution(T, x_mc[i]);
         double mcval = mc_estimator[i][N];
         err += (exact - mcval) * (exact - mcval);
-        // printf("%+7.3f   %.6f   %.6f\n", x_mc[i], exact, mcval);
     }
-    wtime = omp_get_wtime() - wtime;
+
+    err = sqrt(err / n_mc);   // RMS error
+
+    
     printf("%d    %lf    %lf\n", N, err, wtime);
     printf("TEST END\n");
 

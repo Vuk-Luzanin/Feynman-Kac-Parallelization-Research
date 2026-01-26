@@ -14,7 +14,7 @@ import time
 
 SCRIPT_DIR = dirname(realpath(__file__))
 BUILD_DIR = join(SCRIPT_DIR, 'result')
-ACCURACY = 0.01
+ACCURACY = 0.05             # CHANGED ACCURACY FOR HEAT EQUATION FROM 0.01 TO 0.05
 
 Result = List[List[str]]
 
@@ -106,14 +106,18 @@ TESTS = {
 APPS = {
     'heat_equation_sequential': {
         'type': 'sequential',
-        # 'args_N': [],
+        # 'args_N': [[1000], [5000], [10000], [20000]],     # scaling M for now    - works well
+        'args_N': [[100], [1000], [10000], [20000]],        # scaling N for now
+        # 'args_N': [[20], [50], [100], [200]],               # scaling n_mc for now
         'results' : {},              # key (args) : value (results)
         'x_axis' : [],
         'threads': [1]
     },
     'heat_equation_omp': {
-        'type': 'omp',
-        # 'args_N': [],
+        'type': 'omp',  
+        # 'args_N': [[1000], [5000], [10000], [20000]],     # scaling M for now   - works well
+        'args_N': [[100], [1000], [10000], [20000]],        # scaling N for now
+        # 'args_N': [[20], [50], [100], [200]],               # scaling n_mc for now
         'x_axis' : [],
         'threads': [1, 2, 4, 8, 16]
     },

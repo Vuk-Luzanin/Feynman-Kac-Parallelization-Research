@@ -129,7 +129,7 @@ void* worker_static(void* restrict arg_) {
     return NULL;
 }
 
-void* (*FUNCS[])(void* restrict)  = {worker_dynamic, worker_static};
+void* (*FUNCS[])(void* restrict)  = {worker_static, worker_dynamic};
 
 
 double feynman_pthreads(const double a, const int N, const int func) {

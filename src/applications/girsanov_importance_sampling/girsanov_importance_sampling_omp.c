@@ -164,12 +164,12 @@ int main(int argc, char **argv)
     // printf("N = %d\n", N);
 
     /* Without importance sampling */
-    importance_sampling(drift_zero, M, N, &mean, &var);
+    // importance_sampling(drift_zero, M, N, &mean, &var);
     // printf("  No IS : mean = %.6f, var = %.6e\n", mean, var / M);
     // print_confidence_interval(mean, var, M);
 
     /* With importance sampling */
-    // importance_sampling(drift_importance, M, N, &mean, &var);
+    importance_sampling(drift_importance, M, N, &mean, &var);
     // printf("  IS    : mean = %.6f, var = %.6e\n\n", mean, var / M);
     // print_confidence_interval(mean, var, M);
 
