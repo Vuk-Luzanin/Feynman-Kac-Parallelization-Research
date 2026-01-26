@@ -106,27 +106,27 @@ TESTS = {
 APPS = {
     'heat_equation_sequential': {
         'type': 'sequential',
-        'args_N': [],
+        # 'args_N': [],
         'results' : {},              # key (args) : value (results)
         'x_axis' : [],
         'threads': [1]
     },
     'heat_equation_omp': {
         'type': 'omp',
-        'args_N': [],
+        # 'args_N': [],
         'x_axis' : [],
         'threads': [1, 2, 4, 8, 16]
     },
     'girsanov_importance_sampling_sequential': {
         'type': 'sequential',
-        'args_N': [],
+        'args_N': [[10], [100], [1000]],
         'results' : {},              # key (args) : value (results)
         'x_axis' : [],
         'threads': [1]
     },
     'girsanov_importance_sampling_omp': {
         'type': 'omp',
-        'args_N': [],
+        'args_N': [[10], [100], [1000]],
         'x_axis' : [],
         'threads': [1, 2, 4, 8, 16]
     },
@@ -169,7 +169,7 @@ def run_test(func_num: int, test_type: str, exe_name: str, args: List[int], num_
     elif test_type == 'omp':
         # Set the number of OpenMP threads in the environment for this process
         process_env['OMP_NUM_THREADS'] = str(num_threads)
-        process_args = [exe_path, str(func_num)]
+        process_args = [exe_path, str(func_num)] if app_test == AppTest.TEST else [exe_path]
         log_filename = ' '.join(process_args + stringified_args + [str(num_threads)])
     elif test_type == 'pthreads':       # IMPORTANT: PTHREADS reads number of threads from OMP_NUM_THREADS variable
         process_env['OMP_NUM_THREADS'] = str(num_threads)
@@ -318,9 +318,7 @@ def run_tests(test_name: str, test_data: Dict[str, Any], func_index: int = -1):
         plt.savefig(join(svg_dir, svg_filename))
         plt.close()
     
-    # After all tests are run, print that the test has passed
     print('Test PASSED')
-
 
 
 
@@ -354,11 +352,14 @@ def run_sequential_applications():
     for app_name, app_data in APPS.items():
         if app_data["type"] != "sequential":
             continue
-        seq_results = run_test(0, app_data["type"], app_name, [], 1, AppTest.APP)
-        APPS[app_name]["results"] = seq_results
-        APPS[app_name]["x_axis"] = np.array([])
-        APPS[app_name]["x_axis"] = np.arange(1) * WIDTH  # Placeholder for actual labels         #[0]
 
+        # Arguments for the tests (default to empty list if 'args' not specified)
+        app_args = app_data['args_N'] if 'args_N' in app_data else [[]]
+        for args in app_args:
+            seq_results = run_test(0, app_data["type"], app_name, args, 1, AppTest.APP)
+            APPS[app_name]["results"][f"{args}"] = seq_results
+            APPS[app_name]["x_axis"] = np.array([])
+            APPS[app_name]["x_axis"] = np.arange(len(app_args)) * WIDTH  # Placeholder for actual labels         #[0]
 
 def run_application():
     print('Running application tests')
@@ -372,59 +373,67 @@ def run_application():
         # get name of sequential test
         seq_name = app_name.rsplit("_", 1)[0] + "_sequential"
         seq_results = APPS[seq_name]["results"]
-        x_axis = APPS[seq_name]["x_axis"]            # [0]
+        x_axis = APPS[seq_name]["x_axis"]           
+        # Arguments for the tests (default to empty list if 'args' not specified)
+        app_args = app_data['args_N'] if 'args_N' in app_data else [[]]
         
         plt.figure(figsize=(15, 7))
         shown_labels = set()
 
-        for num_threads in threads:
-            if num_threads == threads[0]:
-                continue
+        for args in app_args:
 
-            print(f'Running application test {app_name} with {num_threads} threads')
+            for num_threads in threads:
+                if num_threads == threads[0]:
+                    continue
 
-            # time.sleep(1)
+                print(f'Running application test {app_name}, arguments {args} with {num_threads} threads')
 
-            results = run_test(0, test_type, app_name, [], num_threads, AppTest.APP)
+                # time.sleep(1)
 
-            if len(results) == 0:
-                print('An error occurred while getting results for ', app_name, num_threads, file=stderr)
-                exit(1)
+                results = run_test(0, test_type, app_name, args, num_threads, AppTest.APP)
+                if len(results) == 0:
+                    print('An error occurred while getting results for ', app_name, args, num_threads, file=stderr)
+                    exit(1)
 
-            # If results do not match sequential results, print error and exit
-            if not get_same(seq_results, results):
-                print('Results mismatch for function ', 1, num_threads, seq_results, results, file=stderr)
-                print('Test FAILED')
-                exit(2)
+                # If results do not match sequential results, print error and exit
+                if not get_same(seq_results[f"{args}"], results):
+                    print('Results mismatch for function ', 1, num_threads, seq_results[f"{args}"], results, file=stderr)
+                    print('Test FAILED')
+                    exit(2)
 
-            speedups = get_y_SPEEDUP(results, seq_results)  # Placeholder for actual sequential results
+                speedups = get_y_SPEEDUP(results, seq_results[f"{args}"])  # Placeholder for actual sequential results
 
-            bar_width_disp = GROUP_WIDTH / ((len(threads) - 1) * 6.0)  
-            bar_width = bar_width_disp * 0.09                          
+                # bar_width_disp = GROUP_WIDTH / ((len(threads) - 1) * 6.0)  
+                # bar_width = bar_width_disp * 0.09                          
 
-            x_my = (
-                x_axis[0]
-                - ((len(threads) - 2) * bar_width_disp) / 2
-                + (threads.index(num_threads) - 1) * bar_width_disp
-            )
+                # x_my = (
+                #     x_axis[app_args.index(args)]
+                #     - ((len(threads) - 2) * bar_width_disp) / 2
+                #     + (threads.index(num_threads) - 1) * bar_width_disp
+                # )
+                # Calculate bar width for plotting
+                bar_width_disp = GROUP_WIDTH / (len(threads) - 1)
+                bar_width = BAR_WIDTH_INDEX * GROUP_WIDTH / (len(threads) - 1)
 
+                # Adjust x-axis positions for bars based on thread count
+                x_my = x_axis[app_args.index(args)] - (GROUP_WIDTH / 2) + (threads.index(num_threads) - 1) * bar_width_disp + (bar_width / 2) + (1 - BAR_WIDTH_INDEX) * bar_width_disp /2
 
-            label = f"threads={num_threads}"
-            color = thread_colors[num_threads]
+                label = f"threads={num_threads}"
+                color = thread_colors[num_threads]
 
-            if label not in shown_labels:
-                bar = plt.bar(x_my, speedups, label=label, width=bar_width, color=color)
-                shown_labels.add(label)
-            else:
-                bar = plt.bar(x_my, speedups, width=bar_width, color=color)
+                if label not in shown_labels:
+                    bar = plt.bar(x_my, speedups, label=label, width=bar_width, color=color)
+                    shown_labels.add(label)
+                else:
+                    bar = plt.bar(x_my, speedups, width=bar_width, color=color)
 
-            plt.bar_label(bar, [round(speedup, 1) for speedup in speedups])
+                plt.bar_label(bar, [round(speedup, 1) for speedup in speedups])
 
-        plt.title(f'Application Results for {app_name}')
+        plt.title(f'Application results for {app_name}')
         plt.xlabel('$N$')
         plt.ylabel('Speedup')
         plt.grid(axis='y', linestyle='--', alpha=0.2)
-        plt.xticks(APPS[seq_name]["x_axis"], [app_name])  
+        plt.xticks(APPS[seq_name]["x_axis"], app_args)  
         plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.08),
            ncol=len(threads), frameon=False)
 
@@ -432,7 +441,9 @@ def run_application():
 
         svg_filename = f'results-{app_name}.svg'
         plt.savefig(join(svg_dir, svg_filename))
-        plt.close
+        plt.close()
+    
+    print('Test PASSED')
 
 
 def main():

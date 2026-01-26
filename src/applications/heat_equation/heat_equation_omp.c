@@ -91,7 +91,7 @@ int main(void)
     const double sqrt_dt = sqrt(dt);
     const double sqrt_2  = sqrt(2.0);
 
-    printf("TEST: heat equation arguments [%d] and sequential\n", N);
+    printf("TEST: heat equation arguments [%d] and omp with %ld threads\n", N, get_num_threads());
     double wtime = omp_get_wtime();
 
     /* Spatial grid */
